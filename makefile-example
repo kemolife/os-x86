@@ -1,0 +1,50 @@
+C_SOURCES = $(wildcard kernel/*.c drivers/*.c cpu/*.c libc/*.c)
+HEADERS = $(wildcard kernel/*.h drivers/*.h cpu/*.h libc/*.h)
+# Nice syntax for file extension replacement
+OBJ = ${C_SOURCES:.c=.o cpu/interrupt.o} 
+BIN = bin/boot bin/kernel
+
+# Change this if base on your system
+CC = /path/to/i386-gcc
+GDB = /path/to/i386-gdb
+LD = /path/to/i386-ld
+# -g: Use debugging symbols in gcc
+CFLAGS = -g -ffreestanding -Wall -Wextra -fno-exceptions -m32
+
+# First rule is run by default
+os-image.bin: boot/bootstrap.bin kernel.bin
+	cat bin/boot/bootstrap.bin bin/kernel/kernel.bin > os-image.bin
+
+# '--oformat binary' deletes all symbols as a collateral, so we don't need
+# to 'strip' them manually on this case
+kernel.bin: boot/kernel_entry.o ${OBJ}
+	${LD} -o bin/kernel/$@ -Ttext 0x1000 bin/$^ --oformat binary
+
+# Used for debugging purposes
+kernel.elf: boot/kernel_entry.o ${OBJ}
+	${LD} -o bin/kernel/$@ -Ttext 0x1000 bin/$^ 
+
+run: os-image.bin
+	qemu-system-i386 -fda os-image.bin
+
+# Open the connection to qemu and load our kernel-object file with symbols
+debug: os-image.bin kernel.elf
+	qemu-system-i386 -s -fda os-image.bin &
+	${GDB} -ex "target remote localhost:1234" -ex "symbol-file kernel.elf"
+
+# Generic rules for wildcards
+# To make an object, always compile from its .c
+%.o: %.c ${HEADERS}
+	${CC} ${CFLAGS} -ffreestanding -c $< -o $@
+
+%.o: %.asm | dir
+	nasm $< -f elf -o $@
+
+%.bin: %.asm | dir
+	nasm $< -f bin -o $@
+
+dir:
+	mkdir -p $(BIN)
+
+clean:
+	rm -rf bin

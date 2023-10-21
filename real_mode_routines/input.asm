@@ -1,0 +1,7 @@
+mov ah, 0x00
+int 0x16
+; mov al, 0x65
+int 0x10
+
+times 510-($-$$) db 0
+dw 0xAA55
