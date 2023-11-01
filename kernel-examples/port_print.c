@@ -1,4 +1,4 @@
-#include "../drivers/ports.h"
+#include "../cpu/ports.h"
 
 void main() {
     /* Screen cursor position: ask VGA control register (0x3d4) for bytes

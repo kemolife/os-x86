@@ -20,7 +20,6 @@ jmp $
 %include "boot/switch_to_protected_mode.asm"
 
 [bits 16]
-
 ; load_kernel
 load_kernel :
     mov bx, MSG_LOAD_KERNEL ; Print a message to say we are loading the kernel

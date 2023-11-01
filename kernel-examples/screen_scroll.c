@@ -1,5 +1,5 @@
 #include "../drivers/screen.h"
-#include "../drivers/util.h"
+#include "../libc/string.h"
 
 void main() {
     clear_screen();
