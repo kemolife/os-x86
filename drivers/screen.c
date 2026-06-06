@@ -3,7 +3,11 @@
 #include "../libc/mem.h"
 #include <stdint.h>
 
-/* Declaration of private functions */
+#define RED_ON_WHITE 0xf4
+
+static screen_config_t cfg;
+
+/* Private functions */
 int get_screen_offset();
 void set_screen_offset(int offset);
 int print_char(char c, int col, int row, char attr);
@@ -11,16 +15,11 @@ int get_offset(int col, int row);
 int get_offset_row(int offset);
 int get_offset_col(int offset);
 
-/**********************************************************
- * Public Kernel API functions                            *
- **********************************************************/
+void screen_init(screen_config_t c) {
+    cfg = c;
+}
 
-/**
- * Print a message on the specified location
- * If col, row, are negative, we will use the current offset
- */
 void kprint_at(char *message, int col, int row) {
-    /* Set cursor if col/row are negative */
     int offset;
     if (col >= 0 && row >= 0)
         offset = get_offset(col, row);
@@ -30,11 +29,9 @@ void kprint_at(char *message, int col, int row) {
         col = get_offset_col(offset);
     }
 
-    /* Loop through message and print it */
     int i = 0;
     while (message[i] != 0) {
-        offset = print_char(message[i++], col, row, WHITE_ON_BLACK);
-        /* Compute row/col for next iteration */
+        offset = print_char(message[i++], col, row, cfg.default_attr);
         row = get_offset_row(offset);
         col = get_offset_col(offset);
     }
@@ -48,31 +45,16 @@ void kprint_backspace() {
     int offset = get_screen_offset()-2;
     int row = get_offset_row(offset);
     int col = get_offset_col(offset);
-    print_char(0x08, col, row, WHITE_ON_BLACK);
+    print_char(0x08, col, row, cfg.default_attr);
 }
 
-
-/**********************************************************
- * Private kernel functions                               *
- **********************************************************/
-
-
-/**
- * Innermost print function for our kernel, directly accesses the video memory 
- *
- * If 'col' and 'row' are negative, we will print at current cursor location
- * If 'attr' is zero it will use 'white on black' as default
- * Returns the offset of the next character
- * Sets the video cursor to the returned offset
- */
 int print_char(char c, int col, int row, char attr) {
-    uint8_t *vidmem = (uint8_t*) VIDEO_ADDRESS;
-    if (!attr) attr = WHITE_ON_BLACK;
+    uint8_t *vidmem = (uint8_t*) cfg.video_addr;
+    if (!attr) attr = cfg.default_attr;
 
-    /* Error control: print a red 'E' if the coords aren't right */
-    if (col >= MAX_COLS || row >= MAX_ROWS) {
-        vidmem[2*(MAX_COLS)*(MAX_ROWS)-2] = 'E';
-        vidmem[2*(MAX_COLS)*(MAX_ROWS)-1] = RED_ON_WHITE;
+    if (col >= cfg.max_cols || row >= cfg.max_rows) {
+        vidmem[2*(cfg.max_cols)*(cfg.max_rows)-2] = 'E';
+        vidmem[2*(cfg.max_cols)*(cfg.max_rows)-1] = RED_ON_WHITE;
         return get_offset(col, row);
     }
 
@@ -83,7 +65,7 @@ int print_char(char c, int col, int row, char attr) {
     if (c == '\n') {
         row = get_offset_row(offset);
         offset = get_offset(0, row+1);
-    } else if (c == 0x08) { /* Backspace */
+    } else if (c == 0x08) {
         vidmem[offset] = ' ';
         vidmem[offset+1] = attr;
     } else {
@@ -92,19 +74,17 @@ int print_char(char c, int col, int row, char attr) {
         offset += 2;
     }
 
-    /* Check if the offset is over screen size and scroll */
-    if (offset >= MAX_ROWS * MAX_COLS * 2) {
+    if (offset >= cfg.max_rows * cfg.max_cols * 2) {
         int i;
-        for (i = 1; i < MAX_ROWS; i++) 
-            memory_copy((uint8_t*)(get_offset(0, i) + VIDEO_ADDRESS),
-                        (uint8_t*)(get_offset(0, i-1) + VIDEO_ADDRESS),
-                        MAX_COLS * 2);
+        for (i = 1; i < cfg.max_rows; i++)
+            memory_copy((uint8_t*)(get_offset(0, i) + cfg.video_addr),
+                        (uint8_t*)(get_offset(0, i-1) + cfg.video_addr),
+                        cfg.max_cols * 2);
 
-        /* Blank last line */
-        char *last_line = (char*) (get_offset(0, MAX_ROWS-1) + (uint8_t*) VIDEO_ADDRESS);
-        for (i = 0; i < MAX_COLS * 2; i++) last_line[i] = 0;
+        char *last_line = (char*) (get_offset(0, cfg.max_rows-1) + (uint8_t*) cfg.video_addr);
+        for (i = 0; i < cfg.max_cols * 2; i++) last_line[i] = 0;
 
-        offset -= 2 * MAX_COLS;
+        offset -= 2 * cfg.max_cols;
     }
 
     set_screen_offset(offset);
@@ -112,36 +92,44 @@ int print_char(char c, int col, int row, char attr) {
 }
 
 int get_screen_offset() {
-    
-    port_byte_out(REG_SCREEN_CTRL, 14);
-    int offset = port_byte_in(REG_SCREEN_DATA) << 8; /* High byte: << 8 */
-    port_byte_out(REG_SCREEN_CTRL, 15);
-    offset += port_byte_in(REG_SCREEN_DATA);
-    return offset * 2; /* Position * size of character cell */
+    port_byte_out(cfg.ctrl_port, 14);
+    int offset = port_byte_in(cfg.data_port) << 8;
+    port_byte_out(cfg.ctrl_port, 15);
+    offset += port_byte_in(cfg.data_port);
+    return offset * 2;
 }
 
 void set_screen_offset(int offset) {
-    /* Similar to get_screen_offset, but instead of reading we write data */
     offset /= 2;
-    port_byte_out(REG_SCREEN_CTRL, 14);
-    port_byte_out(REG_SCREEN_DATA, (unsigned char)(offset >> 8));
-    port_byte_out(REG_SCREEN_CTRL, 15);
-    port_byte_out(REG_SCREEN_DATA, (unsigned char)(offset & 0xff));
+    port_byte_out(cfg.ctrl_port, 14);
+    port_byte_out(cfg.data_port, (unsigned char)(offset >> 8));
+    port_byte_out(cfg.ctrl_port, 15);
+    port_byte_out(cfg.data_port, (unsigned char)(offset & 0xff));
 }
 
 void clear_screen() {
-    int screen_size = MAX_COLS * MAX_ROWS;
+    int screen_size = cfg.max_cols * cfg.max_rows;
     int i;
-    char *screen = VIDEO_ADDRESS;
+    char *screen = (char*) cfg.video_addr;
 
     for (i = 0; i < screen_size; i++) {
         screen[i*2] = ' ';
-        screen[i*2+1] = WHITE_ON_BLACK;
+        screen[i*2+1] = cfg.default_attr;
     }
     set_screen_offset(get_offset(0, 0));
 }
 
+int get_offset(int col, int row) { return 2 * (row * cfg.max_cols + col); }
+int get_offset_row(int offset) { return offset / (2 * cfg.max_cols); }
+int get_offset_col(int offset) { return (offset - (get_offset_row(offset)*2*cfg.max_cols))/2; }
 
-int get_offset(int col, int row) { return 2 * (row * MAX_COLS + col); }
-int get_offset_row(int offset) { return offset / (2 * MAX_COLS); }
-int get_offset_col(int offset) { return (offset - (get_offset_row(offset)*2*MAX_COLS))/2; }
+void screen_write_at(char *msg, int col, int row) {
+    uint8_t *vidmem = (uint8_t*) cfg.video_addr;
+    int i = 0;
+    while (msg[i] != 0) {
+        int offset = get_offset(col + i, row);
+        vidmem[offset]   = msg[i];
+        vidmem[offset+1] = cfg.default_attr;
+        i++;
+    }
+}
