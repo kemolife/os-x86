@@ -52,3 +52,5 @@ Mkfile.old
 dkms.conf
 bin/
 makefile
+*.bin
+.DS_Store

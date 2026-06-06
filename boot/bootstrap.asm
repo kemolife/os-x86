@@ -15,7 +15,7 @@ jmp $
 
 %include "real_mode_routines/print/print_string.asm"
 %include "boot/disk_load.asm"
-%include "boot/global_desctiptor_table.asm"
+%include "boot/global_descriptor_table.asm"
 %include "protected_mode_routines/print/print_string.asm"
 %include "boot/switch_to_protected_mode.asm"
 
@@ -25,7 +25,7 @@ load_kernel :
     mov bx, MSG_LOAD_KERNEL ; Print a message to say we are loading the kernel
     call print_string
     mov bx, KERNEL_OFFSET   ; Set -up parameters for our disk_load routine , so
-    mov dh, 15              ; that we load the first 15 sectors ( excluding
+    mov dh, 40              ; that we load the first 40 sectors ( excluding
     mov dl, [BOOT_DRIVE]    ; the boot sector ) from the boot disk ( i.e. our
                             ; kernel code ) to address KERNEL_OFFSET
     call disk_load          

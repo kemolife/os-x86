@@ -4,28 +4,33 @@ HEADERS = $(wildcard kernel/*.h drivers/*.h cpu/*.h libc/*.h)
 OBJ = ${C_SOURCES:.c=.o cpu/interrupt.o} 
 BIN = bin/boot bin/kernel
 
-# Change this if base on your system
-CC = /path/to/i386-gcc
-GDB = /path/to/i386-gdb
-LD = /path/to/i386-ld
+# Docker / Linux (default — works inside the provided Dockerfile)
+CC  = gcc
+GDB = gdb
+LD  = i686-linux-gnu-ld
+
+# macOS native (Homebrew cross-compiler) — uncomment and comment out above:
+# CC  = i386-elf-gcc
+# GDB = i386-elf-gdb
+# LD  = i386-elf-ld
 # -g: Use debugging symbols in gcc
-CFLAGS = -g -ffreestanding -Wall -Wextra -fno-exceptions -m32
+CFLAGS = -g -ffreestanding -Wall -Wextra -fno-exceptions -m32 -fno-pie -fno-pic
 
 # First rule is run by default
 os-image.bin: boot/bootstrap.bin kernel.bin
-	cat bin/boot/bootstrap.bin bin/kernel/kernel.bin > os-image.bin
+	cat boot/bootstrap.bin bin/kernel/kernel.bin > os-image.bin
 
 # '--oformat binary' deletes all symbols as a collateral, so we don't need
 # to 'strip' them manually on this case
 kernel.bin: boot/kernel_entry.o ${OBJ}
-	${LD} -o bin/kernel/$@ -Ttext 0x1000 bin/$^ --oformat binary
+	${LD} -o bin/kernel/$@ -Ttext 0x1000 $^ --oformat binary
 
 # Used for debugging purposes
 kernel.elf: boot/kernel_entry.o ${OBJ}
-	${LD} -o bin/kernel/$@ -Ttext 0x1000 bin/$^ 
+	${LD} -o bin/kernel/$@ -Ttext 0x1000 $^
 
 run: os-image.bin
-	qemu-system-i386 -fda os-image.bin
+	qemu-system-i386 -drive file=os-image.bin,format=raw,if=floppy -curses
 
 # Open the connection to qemu and load our kernel-object file with symbols
 debug: os-image.bin kernel.elf
@@ -47,4 +52,5 @@ dir:
 	mkdir -p $(BIN)
 
 clean:
-	rm -rf bin
+	rm -rf bin os-image.bin
+	rm -f boot/*.bin boot/*.o kernel/*.o drivers/*.o cpu/*.o libc/*.o

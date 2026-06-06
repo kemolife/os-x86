@@ -1,8 +1,6 @@
 #include "isr.h"
 #include "../drivers/screen.h"
-#include "../drivers/keyboard.h"
 #include "../libc/string.h"
-#include "timer.h"
 #include "ports.h"
 
 isr_t interrupt_handlers[256];
@@ -42,8 +40,9 @@ void isr_install() {
     set_idt_gate(29, (uint32_t)isr29);
     set_idt_gate(30, (uint32_t)isr30);
     set_idt_gate(31, (uint32_t)isr31);
+}
 
-    // Remap the PIC
+void pic_remap() {
     port_byte_out(0x20, 0x11);
     port_byte_out(0xA0, 0x11);
     port_byte_out(0x21, 0x20);
@@ -53,9 +52,11 @@ void isr_install() {
     port_byte_out(0x21, 0x01);
     port_byte_out(0xA1, 0x01);
     port_byte_out(0x21, 0x0);
-    port_byte_out(0xA1, 0x0); 
+    port_byte_out(0xA1, 0x0);
+}
 
-    // Install the IRQs
+void irq_install() {
+    pic_remap();
     set_idt_gate(32, (uint32_t)irq0);
     set_idt_gate(33, (uint32_t)irq1);
     set_idt_gate(34, (uint32_t)irq2);
@@ -72,11 +73,10 @@ void isr_install() {
     set_idt_gate(45, (uint32_t)irq13);
     set_idt_gate(46, (uint32_t)irq14);
     set_idt_gate(47, (uint32_t)irq15);
-
-    set_idt(); // Load with ASM
+    set_idt();
+    asm volatile("sti");
 }
 
-/* To print the message which defines every exception */
 char *exception_messages[] = {
     "Division By Zero",
     "Debug",
@@ -130,23 +130,11 @@ void register_interrupt_handler(uint8_t n, isr_t handler) {
 }
 
 void irq_handler(registers_t *r) {
-    /* After every interrupt we need to send an EOI to the PICs
-     * or they will not send another interrupt again */
     if (r->int_no >= 40) port_byte_out(0xA0, 0x20); /* slave */
     port_byte_out(0x20, 0x20); /* master */
 
-    /* Handle the interrupt in a more modular way */
     if (interrupt_handlers[r->int_no] != 0) {
         isr_t handler = interrupt_handlers[r->int_no];
         handler(r);
     }
-}
-
-void irq_install() {
-    /* Enable interruptions */
-    asm volatile("sti");
-    /* IRQ0: timer */
-    init_timer(50);
-    /* IRQ1: keyboard */
-    init_keyboard();
 }

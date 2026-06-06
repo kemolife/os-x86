@@ -12,10 +12,11 @@ void memory_set(uint8_t *dest, uint8_t val, uint32_t len) {
     for ( ; len != 0; len--) *temp++ = val;
 }
 
-/* This should be computed at link time, but a hardcoded
- * value is fine for now. Remember that our kernel starts
- * at 0x1000 as defined on the Makefile */
-uint32_t free_mem_addr = 0x10000;
+static uint32_t free_mem_addr = 0;
+
+void mem_init(uint32_t heap_start) {
+    free_mem_addr = heap_start;
+}
 /* Implementation is just a pointer to some free memory which
  * keeps growing */
 uint32_t kmalloc(size_t size, int align, uint32_t *phys_addr) {

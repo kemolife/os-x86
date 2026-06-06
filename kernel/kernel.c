@@ -1,13 +1,22 @@
 #include "../cpu/isr.h"
+#include "../cpu/timer.h"
 #include "../drivers/screen.h"
+#include "../drivers/keyboard.h"
+#include "../drivers/serial.h"
 #include "kernel.h"
 #include "../libc/string.h"
 #include "../libc/mem.h"
 #include <stdint.h>
 
 void kernel_main() {
+    screen_init(SCREEN_VGA_DEFAULT);
+    mem_init(0x10000);
     isr_install();
     irq_install();
+    init_timer(50);
+    init_keyboard();
+    init_serial();
+    keyboard_set_handler(user_input);
 
     asm("int $2");
     asm("int $3");
@@ -15,14 +24,19 @@ void kernel_main() {
 
     kprint("Type something, it will go through the kernel\n"
         "Type END to halt the CPU or PAGE to request a kmalloc()\n> ");
+    serial_write_str("os-x86 ready. serial I/O active.\n");
 }
 
 void user_input(char *input) {
+    serial_write_str("cmd: ");
+    serial_write_str(input);
+    serial_write_str("\n");
+
     if (strcmp(input, "END") == 0) {
         kprint("Stopping the CPU. Bye!\n");
+        serial_write_str("halt.\n");
         asm volatile("hlt");
     } else if (strcmp(input, "PAGE") == 0) {
-        /* Lesson 22: Code to test kmalloc, the rest is unchanged */
         uint32_t phys_addr;
         uint32_t page = kmalloc(1000, 1, &phys_addr);
         char page_str[16] = "";
