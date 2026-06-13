@@ -12,5 +12,7 @@ SECTIONS {
         *(.bss*)
         *(COMMON)
     }
+    . = ALIGN(4096);
+    PROVIDE(kernel_end = .);   /* first free 4KB-aligned address after the kernel */
     /DISCARD/ : { *(.eh_frame) *(.comment) }
 }
