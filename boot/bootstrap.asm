@@ -1,6 +1,8 @@
 ; A boot sector that enters 32 - bit protected mode.
 [org 0x7c00]
-KERNEL_OFFSET equ 0x1000 ; This is the memory offset to which we will load our kernel
+KERNEL_OFFSET equ 0x10000 ; Load the kernel at 64KB. Must be ABOVE the boot
+                          ; sector (0x7c00) so a large (>~26KB) kernel does not
+                          ; overwrite this code while disk_load is still running.
 
 mov [BOOT_DRIVE], dl   ; BIOS stores our boot drive in DL ,for later use.
 
@@ -24,11 +26,13 @@ jmp $
 load_kernel :
     mov bx, MSG_LOAD_KERNEL ; Print a message to say we are loading the kernel
     call print_string
-    mov bx, KERNEL_OFFSET   ; Set -up parameters for our disk_load routine , so
-    mov dh, 40              ; that we load the first 40 sectors ( excluding
-    mov dl, [BOOT_DRIVE]    ; the boot sector ) from the boot disk ( i.e. our
-                            ; kernel code ) to address KERNEL_OFFSET
-    call disk_load          
+    mov ax, KERNEL_OFFSET >> 4 ; ES = 0x1000 -> physical 0x10000 (BX can't hold
+    mov es, ax                 ; a 20-bit offset, so address via the segment)
+    xor bx, bx
+    mov dh, 241             ; load 241 sectors (~120KB Rust kernel) excluding
+    mov dl, [BOOT_DRIVE]    ; the boot sector, from the boot disk to KERNEL_OFFSET.
+                            ; Keep this >= ceil(kernel.bin / 512); max 255.
+    call disk_load
     ret
 
 [bits 32]
