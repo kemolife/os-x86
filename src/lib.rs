@@ -7,6 +7,7 @@ pub mod cpu;
 pub mod drivers;
 pub mod libc;
 pub mod mm;
+pub mod proc;
 pub mod kernel;
 
 #[panic_handler]

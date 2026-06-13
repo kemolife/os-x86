@@ -32,8 +32,18 @@ fn timer_callback(regs: *const Registers) {
     }
 }
 
+/// Timer IRQ hook that also drives preemptive scheduling once enabled.
+pub fn timer_tick(regs: *const Registers) {
+    unsafe {
+        timer_callback(regs);
+        if crate::proc::enabled() {
+            crate::proc::schedule();
+        }
+    }
+}
+
 pub unsafe fn init_timer(freq: u32) {
-    register_interrupt_handler(IRQ0, timer_callback);
+    register_interrupt_handler(IRQ0, timer_tick);
     let divisor = 1193180 / freq;
     port_byte_out(0x43, 0x36);
     port_byte_out(0x40, (divisor & 0xFF) as u8);

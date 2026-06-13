@@ -13,9 +13,11 @@ Bare-metal x86 OS built from scratch in **Rust**. Covers a NASM bootloader, prot
 - PS/2 keyboard driver with scancode → ASCII mapping
 - COM1 serial driver (output + IRQ4 input)
 - PIT timer (IRQ0)
-- Memory management: E820 map, physical frame allocator (PMM), 32-bit paging,
-  page-fault handler (reports CR2), kernel heap with a `#[global_allocator]`
-  (so `alloc::{Box, Vec, ...}` work)
+- Memory management: E820 map, physical frame allocator (PMM), 32-bit paging
+  with on-demand mapping, page-fault handler (reports CR2), kernel heap with a
+  `#[global_allocator]` (so `alloc::{Box, Vec, ...}` work)
+- Preemptive multitasking: ring-0 kernel threads, round-robin scheduler driven
+  by the timer IRQ, assembly context switch
 - Minimal libc: `string`, `mem` (legacy bump allocator)
 - Interactive kernel shell: `END` halts CPU, `PAGE` tests `kmalloc`
 
@@ -51,8 +53,10 @@ src/                    Rust kernel (#![no_std], staticlib)
   mm/                   memory management
     e820.rs             parse the BIOS E820 map left at 0x8000
     pmm.rs              physical frame allocator (4KB-frame bitmap)
-    paging.rs           page dir/tables, identity map, enable CR0.PG
+    paging.rs           page dir/tables, identity map, on-demand mapping
     heap.rs             first-fit free-list heap + #[global_allocator]
+  proc/                 multitasking
+    task.rs             task table, spawn(), round-robin schedule()
 
 kernel.ld               linker script (links kernel at 0x10000)
 i686-kernel.json        custom bare-metal i686 target spec

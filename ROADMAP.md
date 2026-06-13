@@ -30,16 +30,17 @@ Prerequisite for everything else.
 
 ---
 
-## Stage 2 — Multitasking
+## Stage 2 — Multitasking (in progress)
 
-| Feature | Details |
-|---------|---------|
-| TSS (Task State Segment) | x86 requires TSS for ring 0/3 privilege switches. One TSS entry in GDT |
-| Process control block (PCB) | Struct holding registers, stack pointer, page directory, state, PID |
-| Context switch | Assembly routine: save caller registers, swap `ESP`/`EIP`, restore next task |
-| Round-robin scheduler | Timer IRQ0 triggers scheduler. Simplest: fixed quantum, circular queue |
-| Kernel threads | Multiple execution contexts inside kernel before tackling user space |
-| `sleep(ms)` | Block current thread for N milliseconds using PIT tick count |
+| Feature | Details | Status |
+|---------|---------|--------|
+| Process control block (PCB) | `Task` { esp, stack, id, state } in `src/proc/task.rs` | ✓ |
+| Context switch | `cpu/switch.asm` `switch_context` — pushf/pusha, swap ESP, popa/popf/ret | ✓ |
+| Round-robin scheduler | `schedule()` picks next Ready task; `spawn(entry)` builds a bootstrap stack frame; threads end via a `task_exit` trampoline | ✓ |
+| Timer preemption | IRQ0 (`timer_tick`) calls `schedule()` once enabled | ✓ |
+| Kernel threads | Two demo threads interleave under preemption, then exit cleanly | ✓ |
+| TSS (Task State Segment) | Needed for ring 0/3 switches (Stage 4). Not required for ring-0 threads | todo |
+| `sleep(ms)` | Block a thread for N ms using PIT tick count (needs a blocked state) | todo |
 
 ---
 

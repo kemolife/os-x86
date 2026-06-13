@@ -12,7 +12,7 @@ CARGO_BUILD = cargo +nightly build \
     --release
 
 BIN     = bin/boot bin/kernel
-ASM_OBJ = boot/kernel_entry.o cpu/interrupt.o
+ASM_OBJ = boot/kernel_entry.o cpu/interrupt.o cpu/switch.o
 
 os-image.bin: boot/bootstrap.bin kernel.bin
 	cat boot/bootstrap.bin bin/kernel/kernel.bin > os-image.bin
@@ -44,5 +44,5 @@ dir:
 
 clean:
 	rm -rf bin os-image.bin
-	rm -f boot/*.bin boot/*.o cpu/interrupt.o
+	rm -f boot/*.bin boot/*.o cpu/*.o
 	cargo clean

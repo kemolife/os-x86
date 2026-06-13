@@ -28,6 +28,12 @@ pub unsafe extern "C" fn kernel_main() {
     core::arch::asm!("int 3", options(nostack));
     core::arch::asm!("int 1", options(nostack));
 
+    // Multitasking demo: two ring-0 kernel threads, preempted by the timer.
+    crate::proc::init();
+    crate::proc::spawn(thread_a);
+    crate::proc::spawn(thread_b);
+    crate::proc::enable();
+
     kprint(b"Type something, it will go through the kernel\n\0".as_ptr());
     kprint(b"Type END to halt the CPU or PAGE to request a kmalloc()\n> \0".as_ptr());
     serial_write_str(b"os-x86 ready. serial I/O active.\n\0".as_ptr());
@@ -60,6 +66,32 @@ unsafe fn heap_selftest() {
     }
     // boxed + v dropped here -> space returned and coalesced
     crate::mm::heap::print_stats();
+}
+
+fn spin_delay() {
+    for _ in 0..800_000 {
+        core::hint::spin_loop();
+    }
+}
+
+extern "C" fn thread_a() {
+    unsafe {
+        for _ in 0..5 {
+            serial_write_str(b"[A]\0".as_ptr());
+            spin_delay();
+        }
+        serial_write_str(b"[A done]\n\0".as_ptr());
+    }
+}
+
+extern "C" fn thread_b() {
+    unsafe {
+        for _ in 0..5 {
+            serial_write_str(b"[B]\0".as_ptr());
+            spin_delay();
+        }
+        serial_write_str(b"[B done]\n\0".as_ptr());
+    }
 }
 
 fn user_input(input: *mut u8) {
