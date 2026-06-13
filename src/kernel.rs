@@ -9,6 +9,7 @@ use crate::libc::string::{hex_to_ascii, strcmp};
 #[no_mangle]
 pub unsafe extern "C" fn kernel_main() {
     init_serial();
+    crate::mm::e820::print_map();
     screen_init(SCREEN_VGA_DEFAULT);
     mem_init(0x50000); // heap above the kernel (~0x2f200) and below the stack (0x90000)
     isr_install();
