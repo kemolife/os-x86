@@ -1,7 +1,8 @@
 [bits 16]
-; disk_load: load DH sectors from drive DL into ES:0
+; disk_load: load CX sectors from drive DL into ES:0
 ;
-; Caller passes ES = load segment (BX is ignored; reads always target ES:0).
+; Caller passes CX = sector count (16-bit, so kernels may exceed 255 sectors),
+; ES = load segment (BX is ignored; reads always target ES:0).
 ; Reads one sector at a time, computing CHS from a linear LBA counter each
 ; iteration and advancing ES by 0x20 paragraphs (512 bytes). Keeping the
 ; offset at 0 means a read can never straddle a 64KB segment boundary, which
@@ -11,12 +12,12 @@
 disk_load:
     pusha
 
-    mov [dl_count], dh
+    mov [dl_count], cx
     mov [dl_drive], dl
     mov word [dl_lba], 1        ; kernel starts at LBA 1 (after the boot sector)
 
 dl_loop:
-    cmp byte [dl_count], 0
+    cmp word [dl_count], 0
     je dl_done
 
     ; --- LBA -> CHS ---
@@ -50,7 +51,7 @@ dl_loop:
     add ax, 0x20                ; 512 bytes = 0x20 paragraphs
     mov es, ax
     inc word [dl_lba]
-    dec byte [dl_count]
+    dec word [dl_count]
     jmp dl_loop
 
 dl_done:
@@ -58,7 +59,7 @@ dl_done:
     ret
 
 dl_lba:     dw 0
-dl_count:   db 0
+dl_count:   dw 0
 dl_drive:   db 0
 dl_cyl:     db 0
 dl_head:    db 0

@@ -29,9 +29,9 @@ load_kernel :
     mov ax, KERNEL_OFFSET >> 4 ; ES = 0x1000 -> physical 0x10000 (BX can't hold
     mov es, ax                 ; a 20-bit offset, so address via the segment)
     xor bx, bx
-    mov dh, 241             ; load 241 sectors (~120KB Rust kernel) excluding
-    mov dl, [BOOT_DRIVE]    ; the boot sector, from the boot disk to KERNEL_OFFSET.
-                            ; Keep this >= ceil(kernel.bin / 512); max 255.
+    mov cx, 250             ; sector count (16-bit) >= ceil(kernel.bin / 512).
+    mov dl, [BOOT_DRIVE]    ; Load from the boot disk to KERNEL_OFFSET. Room for
+                            ; ~1024 sectors before the stack at 0x90000.
     call disk_load
     ret
 

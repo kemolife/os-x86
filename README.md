@@ -139,7 +139,7 @@ make run    # build + launch QEMU
 
 ```
 BIOS → MBR (bootstrap.asm, 0x7c00)
-  → load_kernel: reads 241 sectors → kernel.bin at 0x10000
+  → load_kernel: reads 250 sectors → kernel.bin at 0x10000
       (LBA→CHS sector-by-sector loader; ES advances per sector so a read
        never crosses a 64KB DMA boundary or a floppy track edge)
   → sets up GDT
@@ -182,4 +182,4 @@ See [ROADMAP.md](ROADMAP.md) for planned stages: memory management, multitasking
 - `kmalloc` is a bump allocator — no free, no paging
 - No user space / privilege separation yet
 - Keyboard only handles uppercase + basic punctuation (no shift state)
-- Sector count in `bootstrap.asm` (`mov dh, 241`) must stay ≥ `ceil(kernel.bin / 512)`; max 255
+- Sector count in `bootstrap.asm` (`mov cx, 250`) must stay ≥ `ceil(kernel.bin / 512)`; 16-bit, room for ~1024 sectors before the stack at `0x90000`

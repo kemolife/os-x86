@@ -20,13 +20,15 @@ os-image.bin: boot/bootstrap.bin kernel.bin
 	# reads past the kernel return zeros instead of end-of-disk errors
 	truncate -s 1474560 os-image.bin
 
+LDFLAGS = --gc-sections
+
 kernel.bin: $(ASM_OBJ) | dir
 	$(CARGO_BUILD)
-	$(LD) -T kernel.ld -o bin/kernel/$@ $(ASM_OBJ) $(RUST_LIB) --oformat binary
+	$(LD) -T kernel.ld $(LDFLAGS) -o bin/kernel/$@ $(ASM_OBJ) $(RUST_LIB) --oformat binary
 
 kernel.elf: $(ASM_OBJ) | dir
 	$(CARGO_BUILD)
-	$(LD) -T kernel.ld -o bin/kernel/$@ $(ASM_OBJ) $(RUST_LIB)
+	$(LD) -T kernel.ld $(LDFLAGS) -o bin/kernel/$@ $(ASM_OBJ) $(RUST_LIB)
 
 run: os-image.bin
 	qemu-system-i386 -drive file=os-image.bin,format=raw,if=floppy -curses
