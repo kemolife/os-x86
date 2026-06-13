@@ -12,6 +12,8 @@ pub unsafe extern "C" fn kernel_main() {
     crate::mm::e820::print_map();
     crate::mm::pmm::init();
     crate::mm::pmm::print_stats();
+    crate::mm::paging::init();
+    serial_write_str(b"paging: enabled (identity-mapped low 16MB)\n\0".as_ptr());
     screen_init(SCREEN_VGA_DEFAULT);
     mem_init(0x50000); // heap above the kernel (~0x2f200) and below the stack (0x90000)
     isr_install();

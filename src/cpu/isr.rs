@@ -1,7 +1,7 @@
 use crate::cpu::idt::{set_idt_gate, set_idt};
 use crate::cpu::ports::port_byte_out;
 use crate::drivers::screen::kprint;
-use crate::libc::string::int_to_ascii;
+use crate::libc::string::{int_to_ascii, hex_to_ascii};
 
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -117,6 +117,16 @@ pub unsafe extern "C" fn isr_handler(r: *const Registers) {
     if int_no < 32 {
         kprint(EXCEPTION_MESSAGES[int_no].as_ptr());
         kprint(b"\n\0".as_ptr());
+    }
+    if int_no == 14 {
+        let mut addr = [0u8; 16];
+        hex_to_ascii(crate::mm::paging::fault_address() as i32, addr.as_mut_ptr());
+        kprint(b"  fault address (CR2): \0".as_ptr());
+        kprint(addr.as_ptr());
+        kprint(b"\n\0".as_ptr());
+        crate::drivers::serial::serial_write_str(b"PAGE FAULT cr2=\0".as_ptr());
+        crate::drivers::serial::serial_write_str(addr.as_ptr());
+        crate::drivers::serial::serial_write_str(b"\n\0".as_ptr());
     }
 }
 
