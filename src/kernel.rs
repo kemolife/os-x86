@@ -14,6 +14,8 @@ pub unsafe extern "C" fn kernel_main() {
     crate::mm::pmm::print_stats();
     crate::mm::paging::init();
     serial_write_str(b"paging: enabled (identity-mapped low 16MB)\n\0".as_ptr());
+    crate::mm::heap::init();
+    crate::mm::heap::print_stats();
     screen_init(SCREEN_VGA_DEFAULT);
     mem_init(0x50000); // heap above the kernel (~0x2f200) and below the stack (0x90000)
     isr_install();
@@ -29,6 +31,35 @@ pub unsafe extern "C" fn kernel_main() {
     kprint(b"Type something, it will go through the kernel\n\0".as_ptr());
     kprint(b"Type END to halt the CPU or PAGE to request a kmalloc()\n> \0".as_ptr());
     serial_write_str(b"os-x86 ready. serial I/O active.\n\0".as_ptr());
+}
+
+/// Exercise the global allocator: Box + a growing Vec, then drop and confirm
+/// the heap reclaims the space.
+unsafe fn heap_selftest() {
+    use alloc::boxed::Box;
+    use alloc::vec::Vec;
+    use crate::libc::string::int_to_ascii;
+
+    crate::mm::heap::print_stats();
+    {
+        let boxed = Box::new(0xCAFEu32);
+        let mut v: Vec<u32> = Vec::new();
+        for i in 0..16u32 {
+            v.push(i * i);
+        }
+        let sum: u32 = v.iter().sum();
+        let mut buf = [0u8; 12];
+        serial_write_str(b"heap selftest: box=\0".as_ptr());
+        int_to_ascii(*boxed as i32, buf.as_mut_ptr());
+        serial_write_str(buf.as_ptr());
+        serial_write_str(b" vec_sum=\0".as_ptr());
+        int_to_ascii(sum as i32, buf.as_mut_ptr());
+        serial_write_str(buf.as_ptr());
+        serial_write_str(b"\n\0".as_ptr());
+        crate::mm::heap::print_stats();
+    }
+    // boxed + v dropped here -> space returned and coalesced
+    crate::mm::heap::print_stats();
 }
 
 fn user_input(input: *mut u8) {

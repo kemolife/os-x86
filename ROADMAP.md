@@ -14,17 +14,19 @@ Each stage builds on the previous. Complete in order.
 
 ---
 
-## Stage 1 — Memory Management
+## Stage 1 — Memory Management ✓ (mostly done)
 
-Prerequisite for everything else. Current `kmalloc` is a bump allocator with no `free`.
+Prerequisite for everything else.
 
-| Feature | Details |
-|---------|---------|
-| Physical Memory Manager (PMM) | Bitmap over all RAM frames (4 KB each). `pmm_alloc_frame()` / `pmm_free_frame()`. Uses E820 map to mark reserved regions |
-| Paging | Set up page directory + page tables. Enable via `CR0.PG`. Identity-map first 4 MB for kernel |
-| Page fault handler | ISR14 currently just prints and hangs. Should show fault address (`CR2`), error code, stack trace |
-| Kernel heap | `kmalloc` / `kfree` built on paging. Free-list or slab allocator. Replace bump allocator |
-| Virtual memory areas | Track kernel memory regions (code, heap, stack) — needed before user space |
+| Feature | Details | Status |
+|---------|---------|--------|
+| E820 map | `boot/detect_memory.asm` + `src/mm/e820.rs` | ✓ |
+| Physical Memory Manager (PMM) | 4KB-frame bitmap, `alloc_frame`/`free_frame`/`alloc_contiguous`, reserves <1MB + non-usable E820 regions (`src/mm/pmm.rs`) | ✓ |
+| Paging | Page dir + tables, identity-map low 16MB, enable `CR0.PG` (`src/mm/paging.rs`) | ✓ |
+| Page fault handler | ISR14 reports the fault address (`CR2`) to VGA + serial | ✓ |
+| Kernel heap | First-fit free list with coalescing + `#[global_allocator]` so `alloc::{Box,Vec}` work (`src/mm/heap.rs`) | ✓ |
+| Virtual memory areas | Track kernel memory regions (code, heap, stack) — needed before user space | todo |
+| On-demand mapping | Map a frame to a virtual address on page fault instead of looping; grow the heap past 16MB | todo |
 
 ---
 

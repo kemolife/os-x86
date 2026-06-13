@@ -96,6 +96,33 @@ pub unsafe fn alloc_frame() -> Option<u64> {
     None
 }
 
+/// Allocate `n` contiguous frames; returns the physical base of the run.
+pub unsafe fn alloc_contiguous(n: usize) -> Option<u64> {
+    if n == 0 {
+        return None;
+    }
+    let mut run = 0usize;
+    let mut start = 0usize;
+    for i in 0..TOTAL_FRAMES {
+        if is_used(i) {
+            run = 0;
+            continue;
+        }
+        if run == 0 {
+            start = i;
+        }
+        run += 1;
+        if run == n {
+            for j in start..start + n {
+                mark_used(j);
+            }
+            FREE_FRAMES -= n;
+            return Some((start * FRAME_SIZE) as u64);
+        }
+    }
+    None
+}
+
 /// Return a frame to the pool. `addr` must be 4KB-aligned and previously allocated.
 pub unsafe fn free_frame(addr: u64) {
     let i = frame_index(addr);

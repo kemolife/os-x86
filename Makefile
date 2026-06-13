@@ -7,7 +7,7 @@ RUST_LIB    = target/$(RUST_TARGET)/release/libkernel.a
 CARGO_BUILD = cargo +nightly build \
     -Z json-target-spec \
     --target $(RUST_TARGET).json \
-    -Z build-std=core,compiler_builtins \
+    -Z build-std=core,compiler_builtins,alloc \
     -Z build-std-features=compiler-builtins-mem \
     --release
 

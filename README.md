@@ -12,8 +12,11 @@ Bare-metal x86 OS built from scratch in **Rust**. Covers a NASM bootloader, prot
 - VGA text mode screen driver (scrolling, backspace)
 - PS/2 keyboard driver with scancode → ASCII mapping
 - COM1 serial driver (output + IRQ4 input)
-- Minimal libc: `string`, `mem` (bump allocator)
 - PIT timer (IRQ0)
+- Memory management: E820 map, physical frame allocator (PMM), 32-bit paging,
+  page-fault handler (reports CR2), kernel heap with a `#[global_allocator]`
+  (so `alloc::{Box, Vec, ...}` work)
+- Minimal libc: `string`, `mem` (legacy bump allocator)
 - Interactive kernel shell: `END` halts CPU, `PAGE` tests `kmalloc`
 
 ## Project Layout
@@ -21,6 +24,7 @@ Bare-metal x86 OS built from scratch in **Rust**. Covers a NASM bootloader, prot
 ```
 boot/                   bootloader (NASM assembly)
   bootstrap.asm         MBR: loads kernel at 0x10000, switches to protected mode
+  detect_memory.asm     BIOS E820 memory map -> 0x8000 (real mode)
   disk_load.asm         LBA→CHS sector-by-sector BIOS int 0x13 loader
   global_descriptor_table.asm  GDT definition
   switch_to_protected_mode.asm protected mode switch routine
@@ -42,8 +46,13 @@ src/                    Rust kernel (#![no_std], staticlib)
     keyboard.rs         PS/2 keyboard driver
     serial.rs           COM1 serial driver
   libc/
-    mem.rs              memory_copy, memory_set, kmalloc (bump allocator)
+    mem.rs              memory_copy, memory_set, kmalloc (legacy bump allocator)
     string.rs           int_to_ascii, hex_to_ascii, strcmp, strlen, append
+  mm/                   memory management
+    e820.rs             parse the BIOS E820 map left at 0x8000
+    pmm.rs              physical frame allocator (4KB-frame bitmap)
+    paging.rs           page dir/tables, identity map, enable CR0.PG
+    heap.rs             first-fit free-list heap + #[global_allocator]
 
 kernel.ld               linker script (links kernel at 0x10000)
 i686-kernel.json        custom bare-metal i686 target spec
@@ -147,8 +156,10 @@ BIOS → MBR (bootstrap.asm, 0x7c00)
   → jumps to kernel_entry.asm (_start at 0x10000)
     → calls kernel_main() [Rust]
       → init_serial()        — COM1 8N1
+      → mm::e820 / pmm / paging / heap — parse RAM, frame allocator, enable
+                               paging, bring up the global-allocator heap
       → screen_init()        — configure VGA (80×25, 0xb8000)
-      → mem_init(0x50000)    — set heap base
+      → mem_init(0x50000)    — legacy bump heap base (for the PAGE demo)
       → isr_install()        — register CPU exception handlers (0–31)
       → irq_install()        — remap PIC, register IRQ handlers (32–47), enable interrupts
       → init_timer(50)       — start PIT at 50 Hz
@@ -164,14 +175,18 @@ BIOS → MBR (bootstrap.asm, 0x7c00)
 |---------|---------|
 | `0x00000` – `0x07BFF` | Free (real-mode stack grows down from `0x9000`) |
 | `0x07C00` | Boot sector (MBR) |
+| `0x08000` | E820 memory map (count + entries) |
 | `0x10000` | Kernel loaded here (~120KB, ends ~`0x2F200`) |
-| `0x50000` | Heap start (`kmalloc` bump pointer) |
+| `kernel_end` | PMM frame bitmap |
+| `0x50000` | Legacy bump heap (`mem.rs`, used by `PAGE`) |
 | `0x90000` | Protected-mode stack top |
 | `0xB8000` | VGA text framebuffer |
+| `0x100000`+ | Extended RAM — PMM frames: page tables, then the 1MB kernel heap |
 
-The kernel loads at `0x10000` (not `0x1000`) specifically so a kernel larger
-than ~26KB does not overwrite the boot sector at `0x7C00` while `disk_load` is
-still running.
+Paging identity-maps the low 16MB (physical == virtual), so every address
+above is reachable unchanged. The kernel loads at `0x10000` (not `0x1000`) so a
+kernel larger than ~26KB does not overwrite the boot sector at `0x7C00` while
+`disk_load` is still running.
 
 ## Roadmap
 
