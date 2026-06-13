@@ -47,3 +47,39 @@ pub unsafe fn fault_address() -> u32 {
     core::arch::asm!("mov {}, cr2", out(reg) cr2, options(nostack, nomem));
     cr2
 }
+
+/// Demand-paging window: faults here are satisfied by mapping a fresh frame.
+/// It sits just above the identity-mapped region.
+const GROW_BASE: u32 = 0x0100_0000; // 16MB
+const GROW_TOP: u32 = 0x0200_0000; // 32MB
+
+/// Map one 4KB page `virt` -> `phys`, creating the page table if needed.
+pub unsafe fn map_page(virt: u32, phys: u32, flags: u32) {
+    let di = (virt >> 22) as usize;
+    let ti = ((virt >> 12) & 0x3FF) as usize;
+
+    if *PAGE_DIR.add(di) & PAGE_PRESENT == 0 {
+        let table = pmm::alloc_frame().expect("no frame for page table") as u32;
+        let t = table as *mut u32;
+        for i in 0..1024 {
+            *t.add(i) = 0;
+        }
+        *PAGE_DIR.add(di) = table | PAGE_PRESENT | PAGE_WRITE;
+    }
+
+    let table = (*PAGE_DIR.add(di) & !0xFFF) as *mut u32;
+    *table.add(ti) = (phys & !0xFFF) | flags | PAGE_PRESENT;
+    core::arch::asm!("invlpg [{}]", in(reg) virt, options(nostack));
+}
+
+/// Page-fault recovery: if the fault is in the demand-paging window, back it
+/// with a fresh frame and report success so the faulting instruction retries.
+pub unsafe fn handle_fault(addr: u32) -> bool {
+    if addr >= GROW_BASE && addr < GROW_TOP {
+        if let Some(frame) = pmm::alloc_frame() {
+            map_page(addr & !0xFFF, frame as u32, PAGE_WRITE);
+            return true;
+        }
+    }
+    false
+}

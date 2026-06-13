@@ -109,6 +109,24 @@ static EXCEPTION_MESSAGES: [&[u8]; 32] = [
 #[no_mangle]
 pub unsafe extern "C" fn isr_handler(r: *const Registers) {
     let int_no = (*r).int_no as usize;
+
+    // Page fault: try to recover (demand paging) before reporting anything.
+    if int_no == 14 {
+        let cr2 = crate::mm::paging::fault_address();
+        if crate::mm::paging::handle_fault(cr2) {
+            return; // mapped on demand; retry the faulting instruction
+        }
+        let mut addr = [0u8; 16];
+        hex_to_ascii(cr2 as i32, addr.as_mut_ptr());
+        kprint(b"PAGE FAULT (CR2): \0".as_ptr());
+        kprint(addr.as_ptr());
+        kprint(b"\n\0".as_ptr());
+        crate::drivers::serial::serial_write_str(b"PAGE FAULT cr2=\0".as_ptr());
+        crate::drivers::serial::serial_write_str(addr.as_ptr());
+        crate::drivers::serial::serial_write_str(b"\n\0".as_ptr());
+        return;
+    }
+
     kprint(b"received interrupt: \0".as_ptr());
     let mut s = [0u8; 4];
     int_to_ascii(int_no as i32, s.as_mut_ptr());
@@ -117,16 +135,6 @@ pub unsafe extern "C" fn isr_handler(r: *const Registers) {
     if int_no < 32 {
         kprint(EXCEPTION_MESSAGES[int_no].as_ptr());
         kprint(b"\n\0".as_ptr());
-    }
-    if int_no == 14 {
-        let mut addr = [0u8; 16];
-        hex_to_ascii(crate::mm::paging::fault_address() as i32, addr.as_mut_ptr());
-        kprint(b"  fault address (CR2): \0".as_ptr());
-        kprint(addr.as_ptr());
-        kprint(b"\n\0".as_ptr());
-        crate::drivers::serial::serial_write_str(b"PAGE FAULT cr2=\0".as_ptr());
-        crate::drivers::serial::serial_write_str(addr.as_ptr());
-        crate::drivers::serial::serial_write_str(b"\n\0".as_ptr());
     }
 }
 
