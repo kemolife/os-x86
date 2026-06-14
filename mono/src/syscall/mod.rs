@@ -4,8 +4,8 @@
 //! and executes `int 0x80`. The interrupt handler routes here; the return value
 //! goes back in EAX.
 
-use crate::drivers::serial::{serial_write, serial_write_str};
-use crate::libc::string::int_to_ascii;
+use oscore::drivers::serial::{serial_write, serial_write_str};
+use oscore::libc::string::int_to_ascii;
 
 pub const SYS_WRITE: u32 = 1;
 pub const SYS_EXIT: u32 = 2;

@@ -40,38 +40,43 @@ boot/                   bootloader (NASM assembly)
 cpu/
   interrupt.asm         Low-level ISR/IRQ stubs (pusha, iret) — only ASM kept
 
-src/                    Rust kernel (#![no_std], staticlib)
-  lib.rs                module tree + panic handler
-  kernel.rs             kernel_main + user_input command handler
-  cpu/
-    ports.rs            inb/outb port I/O
-    idt.rs              IDT gate setup, lidt
-    isr.rs              ISR/IRQ install, handlers, PIC remap
-    timer.rs            PIT timer init
-  drivers/
-    screen.rs           VGA text mode driver (kprint, scroll)
-    keyboard.rs         PS/2 keyboard driver
-    serial.rs           COM1 serial driver
-  libc/
-    mem.rs              memory_copy, memory_set, kmalloc (legacy bump allocator)
-    string.rs           int_to_ascii, hex_to_ascii, strcmp, strlen, append
-  mm/                   memory management
-    e820.rs             parse the BIOS E820 map left at 0x8000
-    pmm.rs              physical frame allocator (4KB-frame bitmap)
-    paging.rs           page dir/tables, identity map, on-demand mapping
-    heap.rs             first-fit free-list heap + #[global_allocator]
-  proc/                 multitasking
-    task.rs             task table, spawn(), round-robin schedule(), sleep()
-  fs/                   filesystems
-    fat12.rs            read-only FAT12 (read_file by 8.3 name)
+Cargo workspace — two kernels share one HAL and one bootloader:
 
-kernel.ld               linker script (links kernel at 0x10000)
+oscore/   (lib)         shared HAL used by both kernels
+  src/cpu/              ports, GDT, IDT, ISR/IRQ + PIC, PIT timer
+  src/drivers/          VGA screen, PS/2 keyboard, COM1 serial, ATA disk
+  src/mm/               E820, PMM, paging, heap (+ #[global_allocator])
+  src/libc/             string, mem
+  src/hooks.rs          syscall/tick indirections each kernel registers
+  src/lib.rs            panic handler + global allocator
+
+mono/     (staticlib)   MONOLITHIC kernel  → os-image-mono.bin
+  src/kernel.rs         kernel_main (registers hooks)
+  src/proc/             task table, scheduler, sleep, per-process address spaces
+  src/syscall/          int 0x80 dispatch (write/exit/getpid/yield/sleep)
+  src/fs/               FAT12 (read/write) + ELF loader
+  src/shell.rs          interactive command shell
+
+micro/    (staticlib)   MICROKERNEL        → os-image-micro.bin
+  src/kernel.rs         minimal kernel_main + echo server/client tasks
+  src/ipc.rs            send/recv message passing
+  src/sched.rs          tiny round-robin scheduler
+
+kernel.ld               linker script (links a kernel at 0x10000)
 i686-kernel.json        custom bare-metal i686 target spec
-Cargo.toml              staticlib crate, panic=abort
+user/program.asm        ring-3 user program (built to an ELF for `run`)
 
 real_mode_routines/     Standalone 16-bit real mode examples (educational)
 protected_mode_routines/ 32-bit print routine used by bootloader
 ```
+
+Two kernels, built and run separately:
+
+```bash
+make mono  && make run-mono     # monolithic OS (shell, fs, ELF, ring 3)
+make micro && make run-micro     # microkernel (IPC echo demo)
+```
+See [ROADMAP-microkernel.md](ROADMAP-microkernel.md) for the microkernel track.
 
 ## Toolchain
 
@@ -88,12 +93,12 @@ Only requirement: [Docker](https://docs.docker.com/get-docker/) installed.
 # 1. Build the Docker image (once). --platform is required on Apple Silicon.
 docker build --platform=linux/amd64 -t os-x86 .
 
-# 2. Compile inside the container — outputs os-image.bin to the current directory
-docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 make
+# 2. Compile the monolithic kernel — outputs os-image-mono.bin
+docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 make mono
 
 # 3. Run in QEMU, serial on stdout
 docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
-    qemu-system-i386 -drive file=os-image.bin,format=raw,if=floppy -nographic -serial stdio
+    qemu-system-i386 -drive file=os-image-mono.bin,format=raw,if=floppy -nographic -serial stdio
 ```
 
 Expected serial output:
@@ -108,7 +113,7 @@ console. To see it, run with a display instead of `-nographic`:
 
 ```bash
 docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
-    qemu-system-i386 -drive file=os-image.bin,format=raw,if=floppy -display curses -serial stdio
+    qemu-system-i386 -drive file=os-image-mono.bin,format=raw,if=floppy -display curses -serial stdio
 ```
 
 ### Debug inside Docker
@@ -118,7 +123,7 @@ docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
 docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 make kernel.elf
 
 # Terminal 1 — boot with GDB stub exposed
-docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os --network host os-x86 qemu-system-i386 -s -S -drive file=os-image.bin,format=raw,if=floppy -nographic
+docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os --network host os-x86 qemu-system-i386 -s -S -drive file=os-image-mono.bin,format=raw,if=floppy -nographic
 
 # Terminal 2 — attach GDB
 docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os --network host os-x86 \
@@ -151,8 +156,8 @@ If the linker binary differs on your host, edit `LD` at the top of the `Makefile
 Then:
 
 ```bash
-make        # build os-image.bin
-make run    # build + launch QEMU
+make mono   # build os-image-mono.bin
+make run-mono    # build + launch QEMU
 ```
 
 ## How It Works

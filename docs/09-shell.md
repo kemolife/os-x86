@@ -11,8 +11,8 @@ in ring 3 that reads input via syscalls.
 ## File structure
 
 ```
-src/shell.rs           command parsing + dispatch
-src/drivers/keyboard.rs lowercase + Shift layout, line buffering
+mono/src/shell.rs           command parsing + dispatch
+oscore/src/drivers/keyboard.rs lowercase + Shift layout, line buffering
 ```
 
 ## How it works
@@ -63,7 +63,7 @@ The shell is interactive, so run with a display:
 ```bash
 # build kernel + user program + a FAT12 disk with both files
 docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
-  make && make user.elf
+  make mono && make user.elf
   dd if=/dev/zero of=fat.img bs=512 count=2880 2>/dev/null
   mkfs.fat -F 12 fat.img >/dev/null 2>&1
   echo "hello world" > h.txt; mcopy -i fat.img h.txt ::HELLO.TXT
@@ -71,7 +71,7 @@ docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
 
 # run with a curses display so you can type
 docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
-  qemu-system-i386 -m 128 -boot a -drive file=os-image.bin,format=raw,if=floppy \
+  qemu-system-i386 -m 128 -boot a -drive file=os-image-mono.bin,format=raw,if=floppy \
   -drive file=fat.img,format=raw,if=ide -display curses
 ```
 

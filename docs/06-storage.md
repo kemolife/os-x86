@@ -20,8 +20,8 @@ the kernel must talk to a disk. The standard interface on a PC is **ATA**
 ## File structure
 
 ```
-src/drivers/ata.rs    LBA28 PIO sector reads on the primary master
-src/cpu/ports.rs      port_word_in (the data port is 16-bit)
+oscore/src/drivers/ata.rs    LBA28 PIO sector reads on the primary master
+oscore/src/cpu/ports.rs      port_word_in (the data port is 16-bit)
 ```
 
 ## How it works
@@ -69,12 +69,12 @@ the primary IDE disk (`if=ide`), and check the bytes.
 
 ```bash
 docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
-  make >/dev/null 2>&1
+  make mono >/dev/null 2>&1
   # 1MB disk with a 16-byte ASCII marker at sector 0
   dd if=/dev/zero of=/tmp/disk.img bs=512 count=2048 2>/dev/null
   printf "ATAOKDISK0123456" | dd of=/tmp/disk.img bs=1 count=16 conv=notrunc 2>/dev/null
   timeout 6 qemu-system-i386 -m 128 \
-    -drive file=os-image.bin,format=raw,if=floppy \
+    -drive file=os-image-mono.bin,format=raw,if=floppy \
     -drive file=/tmp/disk.img,format=raw,if=ide -nographic -serial file:/tmp/r.log -monitor null 2>/dev/null || true
   tr -d "\000" < /tmp/r.log | grep ata:'
 ```

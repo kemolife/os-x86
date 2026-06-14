@@ -1,11 +1,6 @@
-[package]
-name = "kernel"
-version = "0.1.0"
-edition = "2021"
-
-[lib]
-name = "kernel"
-crate-type = ["staticlib"]
+[workspace]
+resolver = "2"
+members = ["oscore", "mono", "micro"]
 
 [profile.release]
 opt-level = 2

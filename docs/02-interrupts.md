@@ -26,8 +26,8 @@ like a divide-by-zero or a page fault. Three sources:
 
 ```
 cpu/interrupt.asm     low-level entry stubs (assembly) for all 48 vectors
-src/cpu/idt.rs        IdtGate struct, set_idt_gate(), lidt
-src/cpu/isr.rs        install handlers, the common Rust isr_handler/irq_handler,
+oscore/src/cpu/idt.rs        IdtGate struct, set_idt_gate(), lidt
+oscore/src/cpu/isr.rs        install handlers, the common Rust isr_handler/irq_handler,
                       PIC remap, the handler registry
 ```
 
@@ -54,14 +54,14 @@ isr3:                 ; breakpoint — no error code, push a dummy 0
 
 This uniform layout means the Rust side always sees the same `Registers` struct.
 
-### 2. The IDT (`src/cpu/idt.rs`)
+### 2. The IDT (`oscore/src/cpu/idt.rs`)
 
 `set_idt_gate(n, handler_addr)` fills entry `n`: the handler address (split into
 low/high 16-bit halves), the kernel code selector `0x08`, and flags `0x8E`
 (present, ring 0, 32-bit interrupt gate). `set_idt()` loads the table with
 `lidt`.
 
-### 3. Installing handlers (`src/cpu/isr.rs`)
+### 3. Installing handlers (`oscore/src/cpu/isr.rs`)
 
 - `isr_install()` points IDT entries 0–31 at the exception stubs.
 - `irq_install()` first **remaps the PIC**. By default the PIC delivers IRQ0–15

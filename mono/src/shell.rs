@@ -4,13 +4,13 @@
 //! Commands: help, mem, ps, ls, cat <file>, run <file>, uptime, clear.
 //! Output goes to both the VGA screen (what you see) and the serial log.
 
-use crate::drivers::screen::{kprint, clear_screen};
-use crate::drivers::serial::serial_write_str;
-use crate::libc::string::int_to_ascii;
-use crate::mm::{pmm, heap};
+use oscore::drivers::screen::{kprint, clear_screen};
+use oscore::drivers::serial::serial_write_str;
+use oscore::libc::string::int_to_ascii;
+use oscore::mm::{pmm, heap};
 use crate::fs::{fat12, elf};
-use crate::cpu::timer;
-use crate::cpu::ports::port_word_out;
+use oscore::cpu::timer;
+use oscore::cpu::ports::port_word_out;
 use crate::proc;
 
 static mut PENDING_EXEC: [u8; 11] = [b' '; 11];

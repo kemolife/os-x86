@@ -8,9 +8,9 @@
 //! can't see each other's memory or the kernel's.
 
 use alloc::vec;
-use crate::cpu::gdt::enter_user_mode;
+use oscore::cpu::gdt::enter_user_mode;
 use crate::fs::fat12;
-use crate::mm::{paging, pmm};
+use oscore::mm::{paging, pmm};
 
 const USER_STACK_ADDR: u32 = 0x5000_0000;
 const USER_STACK_TOP: u32 = USER_STACK_ADDR + 0x1000; // one page

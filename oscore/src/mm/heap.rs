@@ -8,7 +8,6 @@
 //! for any normal Rust type. Allocations requesting an alignment greater than
 //! 16 are not supported.
 
-use core::alloc::{GlobalAlloc, Layout};
 use crate::mm::pmm;
 
 #[repr(C, align(16))]
@@ -114,23 +113,4 @@ pub unsafe fn print_stats() {
     int_to_ascii(blocks as i32, buf.as_mut_ptr()); serial_write_str(buf.as_ptr());
     serial_write_str(b" blocks\n\0".as_ptr());
 }
-
-// --- Rust global allocator, so alloc::{Box, Vec, ...} work ---
-
-struct KernelAlloc;
-
-unsafe impl GlobalAlloc for KernelAlloc {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        // Payloads are always 16-aligned; larger alignments are unsupported.
-        if layout.align() > 16 {
-            return core::ptr::null_mut();
-        }
-        kmalloc(layout.size())
-    }
-    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
-        kfree(ptr);
-    }
-}
-
-#[global_allocator]
-static ALLOCATOR: KernelAlloc = KernelAlloc;
+// The #[global_allocator] lives in oscore/src/lib.rs and calls kmalloc/kfree.

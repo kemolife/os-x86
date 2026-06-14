@@ -144,7 +144,7 @@ keyboard, disk, serial) expose registers as port numbers. Two instructions:
 - `out dx, al` — write the byte in `AL` to the port number in `DX`.
 - `in al, dx`  — read a byte from the port in `DX` into `AL`.
 
-Our Rust wrappers are `port_byte_out` / `port_byte_in` in `src/cpu/ports.rs`.
+Our Rust wrappers are `port_byte_out` / `port_byte_in` in `oscore/src/cpu/ports.rs`.
 Example: the timer chip is programmed by writing to ports `0x40`/`0x43`; a disk
 sector is read word-by-word from port `0x1F0`.
 

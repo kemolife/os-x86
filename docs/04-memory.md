@@ -11,10 +11,10 @@ E820 map  ->  PMM (frame allocator)  ->  Paging  ->  Heap (Box/Vec)
 
 ```
 boot/detect_memory.asm   E820 query (real mode), writes the map to 0x8000
-src/mm/e820.rs           read + print the map
-src/mm/pmm.rs            physical frame allocator (4KB-frame bitmap)
-src/mm/paging.rs         page directory/tables, identity map, on-demand mapping
-src/mm/heap.rs           first-fit free-list heap + #[global_allocator]
+oscore/src/mm/e820.rs           read + print the map
+oscore/src/mm/pmm.rs            physical frame allocator (4KB-frame bitmap)
+oscore/src/mm/paging.rs         page directory/tables, identity map, on-demand mapping
+oscore/src/mm/heap.rs           first-fit free-list heap + #[global_allocator]
 kernel.ld                exports `kernel_end` (where the bitmap is placed)
 ```
 
@@ -34,7 +34,7 @@ this, and only in real mode — so we ask *before* switching to protected mode.
 call returns one 24-byte entry: `base` (8 bytes), `length` (8), `type` (4),
 `attributes` (4). Type 1 = usable RAM; anything else is reserved. The routine
 stores the entry count at physical `0x8000` and the entries at `0x8004`. After
-the switch, `src/mm/e820.rs` reads them straight from those addresses.
+the switch, `oscore/src/mm/e820.rs` reads them straight from those addresses.
 
 ### Result — what it means
 
@@ -177,7 +177,7 @@ Plain serial boot shows all four layers:
 
 ```bash
 docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
-  qemu-system-i386 -m 128 -drive file=os-image.bin,format=raw,if=floppy -nographic
+  qemu-system-i386 -m 128 -drive file=os-image-mono.bin,format=raw,if=floppy -nographic
 ```
 
 Expected:

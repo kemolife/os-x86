@@ -28,12 +28,12 @@ Silicon the `--platform=linux/amd64` flag is required.
 # build the toolchain image once
 docker build --platform=linux/amd64 -t os-x86 .
 
-# build the OS image (os-image.bin)
-docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 make
+# build the OS image (os-image-mono.bin)
+docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 make mono
 
 # run — serial output (boot log, memory, threads) goes to your terminal
 docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
-  qemu-system-i386 -m 128 -drive file=os-image.bin,format=raw,if=floppy -nographic
+  qemu-system-i386 -m 128 -drive file=os-image-mono.bin,format=raw,if=floppy -nographic
 ```
 
 Quit QEMU: `Ctrl-A` then `x`.

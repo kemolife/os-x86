@@ -11,7 +11,7 @@
 
 use alloc::vec;
 use alloc::vec::Vec;
-use crate::drivers::ata;
+use oscore::drivers::ata;
 
 fn fat12_get(fat: &[u8], c: u32) -> u32 {
     let fo = (c + c / 2) as usize;
