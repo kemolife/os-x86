@@ -10,6 +10,7 @@ pub mod mm;
 pub mod fs;
 pub mod proc;
 pub mod syscall;
+pub mod shell;
 pub mod kernel;
 
 #[panic_handler]

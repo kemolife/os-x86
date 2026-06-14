@@ -85,6 +85,23 @@ pub unsafe fn exit_current() {
     schedule();
 }
 
+/// Number of tasks in the table (for `ps`).
+pub unsafe fn count() -> usize {
+    NUM_TASKS
+}
+
+/// (id, state-code) for task `i`: 0=Unused 1=Ready 2=Running 3=Blocked 4=Finished.
+pub unsafe fn get(i: usize) -> (u32, u8) {
+    let code = match TASKS[i].state {
+        State::Unused => 0,
+        State::Ready => 1,
+        State::Running => 2,
+        State::Blocked => 3,
+        State::Finished => 4,
+    };
+    (TASKS[i].id, code)
+}
+
 /// Wake any Blocked task whose deadline has passed (called from the timer IRQ).
 pub unsafe fn wake_sleepers(now: u32) {
     for i in 0..NUM_TASKS {

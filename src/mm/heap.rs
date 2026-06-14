@@ -83,6 +83,18 @@ unsafe fn coalesce() {
     }
 }
 
+/// (free bytes, used bytes, block count).
+pub unsafe fn stats() -> (usize, usize, usize) {
+    let (mut free, mut used, mut blocks) = (0usize, 0usize, 0usize);
+    let mut cur = HEAD;
+    while !cur.is_null() {
+        blocks += 1;
+        if (*cur).free { free += (*cur).size; } else { used += (*cur).size; }
+        cur = (*cur).next;
+    }
+    (free, used, blocks)
+}
+
 pub unsafe fn print_stats() {
     use crate::drivers::serial::serial_write_str;
     use crate::libc::string::int_to_ascii;

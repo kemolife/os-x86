@@ -20,6 +20,49 @@ fn u32le(b: &[u8], off: usize) -> u32 {
     b[off] as u32 | (b[off + 1] as u32) << 8 | (b[off + 2] as u32) << 16 | (b[off + 3] as u32) << 24
 }
 
+/// List the root directory: fill up to `max` 11-byte 8.3 names, return the count.
+pub unsafe fn read_dir(out: *mut [u8; 11], max: usize) -> usize {
+    let mut bs = [0u8; 512];
+    if !ata::read_sectors(0, 1, bs.as_mut_ptr()) || u16le(&bs, 0x0B) != 512 {
+        return 0;
+    }
+    let reserved = u16le(&bs, 0x0E);
+    let num_fats = bs[0x10] as u32;
+    let root_entries = u16le(&bs, 0x11);
+    let sec_per_fat = u16le(&bs, 0x16);
+    let root_start = reserved + num_fats * sec_per_fat;
+    let root_sectors = (root_entries * 32 + 511) / 512;
+
+    let mut count = 0usize;
+    'outer: for s in 0..root_sectors {
+        let mut sec = [0u8; 512];
+        if !ata::read_sectors(root_start + s, 1, sec.as_mut_ptr()) {
+            break;
+        }
+        for e in 0..16 {
+            let off = e * 32;
+            if sec[off] == 0x00 {
+                break 'outer; // no more entries
+            }
+            if sec[off] == 0xE5 {
+                continue; // deleted
+            }
+            let attr = sec[off + 0x0B];
+            if attr & 0x0F == 0x0F || attr & 0x08 != 0 {
+                continue; // long-filename fragment or volume label
+            }
+            if count >= max {
+                break 'outer;
+            }
+            for k in 0..11 {
+                (*out.add(count))[k] = sec[off + k];
+            }
+            count += 1;
+        }
+    }
+    count
+}
+
 /// Read file `name` (an 11-byte 8.3 name, space-padded, e.g. b"HELLO   TXT")
 /// into `out` (up to `max` bytes). Returns the file size on success.
 pub unsafe fn read_file(name: &[u8; 11], out: *mut u8, max: usize) -> Option<usize> {
