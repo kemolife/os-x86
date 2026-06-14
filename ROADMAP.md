@@ -14,53 +14,61 @@ Each stage builds on the previous. Complete in order.
 
 ---
 
-## Stage 1 — Memory Management
+## Stage 1 — Memory Management ✓ (mostly done)
 
-Prerequisite for everything else. Current `kmalloc` is a bump allocator with no `free`.
+Prerequisite for everything else.
 
-| Feature | Details |
-|---------|---------|
-| Physical Memory Manager (PMM) | Bitmap over all RAM frames (4 KB each). `pmm_alloc_frame()` / `pmm_free_frame()`. Uses E820 map to mark reserved regions |
-| Paging | Set up page directory + page tables. Enable via `CR0.PG`. Identity-map first 4 MB for kernel |
-| Page fault handler | ISR14 currently just prints and hangs. Should show fault address (`CR2`), error code, stack trace |
-| Kernel heap | `kmalloc` / `kfree` built on paging. Free-list or slab allocator. Replace bump allocator |
-| Virtual memory areas | Track kernel memory regions (code, heap, stack) — needed before user space |
-
----
-
-## Stage 2 — Multitasking
-
-| Feature | Details |
-|---------|---------|
-| TSS (Task State Segment) | x86 requires TSS for ring 0/3 privilege switches. One TSS entry in GDT |
-| Process control block (PCB) | Struct holding registers, stack pointer, page directory, state, PID |
-| Context switch | Assembly routine: save caller registers, swap `ESP`/`EIP`, restore next task |
-| Round-robin scheduler | Timer IRQ0 triggers scheduler. Simplest: fixed quantum, circular queue |
-| Kernel threads | Multiple execution contexts inside kernel before tackling user space |
-| `sleep(ms)` | Block current thread for N milliseconds using PIT tick count |
+| Feature | Details | Status |
+|---------|---------|--------|
+| E820 map | `boot/detect_memory.asm` + `src/mm/e820.rs` | ✓ |
+| Physical Memory Manager (PMM) | 4KB-frame bitmap, `alloc_frame`/`free_frame`/`alloc_contiguous`, reserves <1MB + non-usable E820 regions (`src/mm/pmm.rs`) | ✓ |
+| Paging | Page dir + tables, identity-map low 16MB, enable `CR0.PG` (`src/mm/paging.rs`) | ✓ |
+| Page fault handler | ISR14 reports the fault address (`CR2`) to VGA + serial | ✓ |
+| Kernel heap | First-fit free list with coalescing + `#[global_allocator]` so `alloc::{Box,Vec}` work (`src/mm/heap.rs`) | ✓ |
+| Virtual memory areas | Track kernel memory regions (code, heap, stack) — needed before user space | todo |
+| On-demand mapping | Map a frame to a virtual address on page fault instead of looping; grow the heap past 16MB | todo |
 
 ---
 
-## Stage 3 — Storage
+## Stage 2 — Multitasking (in progress)
 
-| Feature | Details |
-|---------|---------|
-| ATA/IDE PIO driver | Read/write 512-byte sectors via ports `0x1F0`–`0x1F7`. IRQ14 (primary) / IRQ15 (secondary) |
-| Partition table parsing | Read MBR partition table to find FAT partition |
-| FAT12 / FAT16 | Parse FAT filesystem on the boot floppy/disk image. `open`, `read`, `readdir` |
-| VFS layer | Unified interface over storage drivers. `vfs_open()`, `vfs_read()`, `vfs_write()` |
+| Feature | Details | Status |
+|---------|---------|--------|
+| Process control block (PCB) | `Task` { esp, stack, id, state } in `src/proc/task.rs` | ✓ |
+| Context switch | `cpu/switch.asm` `switch_context` — pushf/pusha, swap ESP, popa/popf/ret | ✓ |
+| Round-robin scheduler | `schedule()` picks next Ready task; `spawn(entry)` builds a bootstrap stack frame; threads end via a `task_exit` trampoline | ✓ |
+| Timer preemption | IRQ0 (`timer_tick`) calls `schedule()` once enabled | ✓ |
+| Kernel threads | Two demo threads interleave under preemption, then exit cleanly | ✓ |
+| TSS (Task State Segment) | Needed for ring 0/3 switches (Stage 4). Not required for ring-0 threads | todo |
+| `sleep(ms)` | Block a thread for N ms using PIT tick count (needs a blocked state) | todo |
 
 ---
 
-## Stage 4 — User Space
+## Stage 3 — Storage (in progress)
 
-| Feature | Details |
-|---------|---------|
-| Ring 3 privilege | Add user-mode code/data segments to GDT (DPL=3). `iret` into ring 3 |
-| Syscall interface | `int 0x80` dispatch table. Start with `write`, `exit`, `read` |
-| ELF loader | Parse ELF32 binary, load segments into user address space, jump to entry point |
-| User stack | Allocate per-process user stack in low virtual memory |
-| `fork` / `exec` | Clone address space (`fork`), replace image with ELF (`exec`) |
+| Feature | Details | Status |
+|---------|---------|--------|
+| ATA/IDE PIO driver | LBA28 sector reads via ports `0x1F0`–`0x1F7`; floating-bus/timeout guard so a diskless boot doesn't hang (`src/drivers/ata.rs`) | ✓ (read) |
+| ATA writes | LBA28 polled sector writes + cache flush (`write_sectors`) | ✓ |
+| FAT12 write | Allocate clusters, write data + FAT chain + dir entry (`write_file`); shell `save` | ✓ |
+| IRQ-driven transfers | Currently polled | todo |
+| FAT12 read | Parse BPB + root dir + FAT chains; `read_file(8.3 name)` (`src/fs/fat12.rs`) | ✓ |
+| Partition table parsing | Read MBR partition table to find a FAT partition | todo |
+| FAT12/16 writes + readdir | create/append files, list directories | todo |
+| VFS layer | Unified interface over storage drivers. `vfs_open()`, `vfs_read()`, `vfs_write()` | todo |
+
+---
+
+## Stage 4 — User Space (in progress)
+
+| Feature | Details | Status |
+|---------|---------|--------|
+| Ring 3 privilege | User code/data GDT descriptors (DPL 3) + TSS; `enter_user_mode` iret into ring 3 (`src/cpu/gdt.rs`) | ✓ |
+| Syscall interface | `int 0x80` gate (DPL 3) + dispatch: `sys_write`, `sys_exit` (`src/syscall`) | ✓ |
+| ELF loader | Parse ELF32, load PT_LOAD segments, enter ring 3 at the entry; loads INIT.ELF off the FAT12 disk (`src/fs/elf.rs`, `user/program.asm`) | ✓ |
+| Per-process page tables | Real address-space isolation (identity map is shared+user for now) | todo |
+| User stack | Per-process user stack | partial (heap-allocated per launch) |
+| `fork` / `exec` | Clone address space; replace image with an ELF | todo |
 
 ---
 
