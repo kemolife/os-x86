@@ -16,16 +16,20 @@ enum State {
 
 #[derive(Clone, Copy)]
 struct Task {
-    esp: u32,       // saved stack pointer (the switch frame lives here)
-    stack: u32,     // base of the allocated stack (for cleanup later)
+    esp: u32,        // saved stack pointer (the switch frame lives here)
+    stack: u32,      // base of the allocated kernel stack
+    kstack_top: u32, // top of the kernel stack — loaded into TSS esp0 when this task runs
+    page_dir: u32,   // physical page directory; 0 = use the shared kernel space
     id: u32,
     state: State,
-    wake_tick: u32, // timer tick at which a Blocked task becomes Ready
+    wake_tick: u32,  // timer tick at which a Blocked task becomes Ready
 }
 
 const EMPTY: Task = Task {
     esp: 0,
     stack: 0,
+    kstack_top: 0,
+    page_dir: 0,
     id: 0,
     state: State::Unused,
     wake_tick: 0,
@@ -47,6 +51,8 @@ pub unsafe fn init() {
     TASKS[0] = Task {
         esp: 0,
         stack: 0,
+        kstack_top: 0x90000, // the boot stack
+        page_dir: 0,
         id: 0,
         state: State::Running,
         wake_tick: 0,
@@ -152,6 +158,8 @@ pub unsafe fn spawn(entry: extern "C" fn()) {
     TASKS[NUM_TASKS] = Task {
         esp: sp as u32,
         stack,
+        kstack_top: stack + STACK_SIZE as u32,
+        page_dir: 0,
         id: NEXT_ID,
         state: State::Ready,
         wake_tick: 0,
@@ -194,6 +202,15 @@ pub unsafe fn schedule() {
     }
     TASKS[next].state = State::Running;
     CURRENT = next;
+
+    // Run the next task on its own kernel stack (so concurrent in-kernel /
+    // syscall execution doesn't share one stack), and in its address space.
+    crate::cpu::gdt::set_kernel_stack(TASKS[next].kstack_top);
+    if TASKS[next].page_dir != 0 {
+        crate::mm::paging::switch_address_space(TASKS[next].page_dir);
+    } else {
+        crate::mm::paging::switch_to_kernel_space();
+    }
 
     let save = &raw mut TASKS[prev].esp;
     let new_esp = TASKS[next].esp;

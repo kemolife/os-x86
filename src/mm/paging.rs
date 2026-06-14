@@ -44,6 +44,21 @@ pub unsafe fn init() {
     core::arch::asm!("mov cr0, {}", in(reg) cr0, options(nostack));
 }
 
+/// Switch the active address space (load CR3 with a page-directory physical addr).
+pub unsafe fn switch_address_space(dir_phys: u32) {
+    core::arch::asm!("mov cr3, {}", in(reg) dir_phys, options(nostack));
+}
+
+/// Switch back to the shared kernel address space.
+pub unsafe fn switch_to_kernel_space() {
+    core::arch::asm!("mov cr3, {}", in(reg) PAGE_DIR as u32, options(nostack));
+}
+
+/// Physical address of the kernel page directory.
+pub unsafe fn kernel_dir() -> u32 {
+    PAGE_DIR as u32
+}
+
 /// Read the faulting linear address from CR2 (used by the page-fault handler).
 pub unsafe fn fault_address() -> u32 {
     let cr2: u32;
