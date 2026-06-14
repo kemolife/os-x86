@@ -78,6 +78,29 @@ pub unsafe fn map_user_page(dir_phys: u32, virt: u32, phys: u32) {
     *table.add(ti) = (phys & !0xFFF) | PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
 }
 
+/// Free a user address space: its user page tables, the frames they map, and
+/// the directory itself. The shared kernel page tables (the first
+/// IDENTITY_TABLES entries) are left alone. Must be called from the kernel
+/// address space (the directory/table frames are accessed by physical address).
+pub unsafe fn free_address_space(dir_phys: u32) {
+    let dir = dir_phys as *mut u32;
+    for i in IDENTITY_TABLES..1024 {
+        let pde = *dir.add(i);
+        if pde & PAGE_PRESENT == 0 {
+            continue;
+        }
+        let table = (pde & !0xFFF) as *mut u32;
+        for j in 0..1024 {
+            let pte = *table.add(j);
+            if pte & PAGE_PRESENT != 0 {
+                pmm::free_frame((pte & !0xFFF) as u64);
+            }
+        }
+        pmm::free_frame((pde & !0xFFF) as u64);
+    }
+    pmm::free_frame(dir_phys as u64);
+}
+
 /// Switch the active address space (load CR3 with a page-directory physical addr).
 pub unsafe fn switch_address_space(dir_phys: u32) {
     core::arch::asm!("mov cr3, {}", in(reg) dir_phys, options(nostack));

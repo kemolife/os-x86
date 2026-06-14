@@ -60,8 +60,23 @@ Two gotchas we hit:
 - **`iretd`, not `iret`.** In this assembler `iret` emits the 16-bit `iretw`,
   which pops a garbage frame and #GP-loops.
 - The user code/stack pages must have the **User bit** set in the page tables,
-  or ring-3 access faults. We set it across the identity map for now (so there
-  is no memory isolation yet — that needs per-process page tables).
+  or ring-3 access faults.
+
+## Memory isolation (per-process address spaces)
+
+Each program runs in its **own page directory**. The kernel's identity map is
+**supervisor-only**, and every new address space *shares* those kernel page
+tables (so syscalls/interrupts still work) but adds the program's own pages
+(code, data, stack) at a high virtual address (`0x40000000`+), backed by fresh
+physical frames mapped **USER**. The scheduler loads each task's `CR3` on
+switch, and each task has its **own kernel stack** (TSS `esp0`), so:
+
+- ring 3 can't read or write kernel memory (supervisor pages), and
+- two programs can't see each other's memory (separate directories).
+
+When a task exits it's **reaped**: its kernel stack, page tables, mapped frames,
+and directory are freed (verified: running a program 5× leaves the free-frame
+count unchanged).
 
 ## How to test it
 
