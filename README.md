@@ -192,6 +192,13 @@ above is reachable unchanged. The kernel loads at `0x10000` (not `0x1000`) so a
 kernel larger than ~26KB does not overwrite the boot sector at `0x7C00` while
 `disk_load` is still running.
 
+## Documentation
+
+In-depth, beginner-friendly guides live in [`docs/`](docs/README.md) — one file
+per subsystem (why it exists, how it's implemented, how to test it, what the
+output means, with every abbreviation explained). Start with
+[docs/00 — x86, BIOS & Assembly basics](docs/00-x86-bios-and-assembly.md).
+
 ## Roadmap
 
 See [ROADMAP.md](ROADMAP.md) for planned stages: memory management, multitasking, storage, user space, and advanced features. Future subsystems land as new module folders under `src/` (`mm/`, `proc/`, `fs/`, `syscall/`).
