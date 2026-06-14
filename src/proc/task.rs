@@ -10,15 +10,17 @@ enum State {
     Unused,
     Ready,
     Running,
+    Blocked,  // sleeping until `wake_tick`
     Finished,
 }
 
 #[derive(Clone, Copy)]
 struct Task {
-    esp: u32,   // saved stack pointer (the switch frame lives here)
-    stack: u32, // base of the allocated stack (for cleanup later)
+    esp: u32,       // saved stack pointer (the switch frame lives here)
+    stack: u32,     // base of the allocated stack (for cleanup later)
     id: u32,
     state: State,
+    wake_tick: u32, // timer tick at which a Blocked task becomes Ready
 }
 
 const EMPTY: Task = Task {
@@ -26,6 +28,7 @@ const EMPTY: Task = Task {
     stack: 0,
     id: 0,
     state: State::Unused,
+    wake_tick: 0,
 };
 
 static mut TASKS: [Task; MAX_TASKS] = [EMPTY; MAX_TASKS];
@@ -46,9 +49,39 @@ pub unsafe fn init() {
         stack: 0,
         id: 0,
         state: State::Running,
+        wake_tick: 0,
     };
     NUM_TASKS = 1;
     CURRENT = 0;
+    // Idle task: runs `hlt` when nothing else is runnable (e.g. all asleep),
+    // so the scheduler always has a fallback.
+    spawn(idle);
+}
+
+extern "C" fn idle() {
+    loop {
+        unsafe {
+            core::arch::asm!("hlt", options(nostack, nomem));
+        }
+    }
+}
+
+/// Block the current task for `ms` milliseconds, yielding the CPU meanwhile.
+pub unsafe fn sleep(ms: u32) {
+    let now = crate::cpu::timer::ticks();
+    let delay = (ms * crate::cpu::timer::TIMER_HZ) / 1000;
+    TASKS[CURRENT].wake_tick = now + delay.max(1);
+    TASKS[CURRENT].state = State::Blocked;
+    schedule();
+}
+
+/// Wake any Blocked task whose deadline has passed (called from the timer IRQ).
+pub unsafe fn wake_sleepers(now: u32) {
+    for i in 0..NUM_TASKS {
+        if TASKS[i].state == State::Blocked && now >= TASKS[i].wake_tick {
+            TASKS[i].state = State::Ready;
+        }
+    }
 }
 
 /// When a thread function returns, it lands here: mark finished and yield away.
@@ -89,6 +122,7 @@ pub unsafe fn spawn(entry: extern "C" fn()) {
         stack,
         id: NEXT_ID,
         state: State::Ready,
+        wake_tick: 0,
     };
     NEXT_ID += 1;
     NUM_TASKS += 1;

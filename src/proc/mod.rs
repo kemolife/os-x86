@@ -6,4 +6,4 @@
 
 pub mod task;
 
-pub use task::{enable, enabled, init, schedule, spawn};
+pub use task::{enable, enabled, init, schedule, sleep, spawn};

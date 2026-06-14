@@ -5,7 +5,16 @@ use crate::libc::string::int_to_ascii;
 
 const IRQ0: u8 = 32;
 
+/// PIT frequency the kernel programs (ticks per second). Used to convert
+/// milliseconds <-> ticks for sleep().
+pub const TIMER_HZ: u32 = 50;
+
 static mut TICK: u32 = 0;
+
+/// Total timer ticks since boot.
+pub fn ticks() -> u32 {
+    unsafe { TICK }
+}
 
 fn timer_callback(regs: *const Registers) {
     unsafe {
@@ -37,6 +46,7 @@ pub fn timer_tick(regs: *const Registers) {
     unsafe {
         timer_callback(regs);
         if crate::proc::enabled() {
+            crate::proc::task::wake_sleepers(TICK);
             crate::proc::schedule();
         }
     }

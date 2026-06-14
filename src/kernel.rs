@@ -74,19 +74,21 @@ fn spin_delay() {
     }
 }
 
+// thread_a sleeps 1s between prints (yields the CPU — no busy waiting).
 extern "C" fn thread_a() {
     unsafe {
-        for _ in 0..5 {
+        for _ in 0..3 {
             serial_write_str(b"[A]\0".as_ptr());
-            spin_delay();
+            crate::proc::sleep(1000);
         }
         serial_write_str(b"[A done]\n\0".as_ptr());
     }
 }
 
+// thread_b stays busy; its [B]s fill the gaps while thread_a is asleep.
 extern "C" fn thread_b() {
     unsafe {
-        for _ in 0..5 {
+        for _ in 0..12 {
             serial_write_str(b"[B]\0".as_ptr());
             spin_delay();
         }
