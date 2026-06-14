@@ -17,6 +17,7 @@ Read them in order — each builds on the previous.
 | 06 | [Storage (ATA)](06-storage.md) | Reading disk sectors |
 | 07 | [Filesystem (FAT12)](07-filesystem.md) | Reading named files |
 | 08 | [User space (ring 3 + syscalls)](08-userspace.md) | Running unprivileged code |
+| 09 | [Kernel command shell](09-shell.md) | The interactive terminal |
 
 ## Build and run
 

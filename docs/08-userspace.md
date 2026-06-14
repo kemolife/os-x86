@@ -38,7 +38,9 @@ GDT selectors: `0x08/0x10` kernel code/data, `0x18/0x20` user code/data (DPL 3),
 encodes DPL 3, so *user* code is allowed to invoke it (a normal DPL-0 gate would
 #GP if called from ring 3). The handler reads the call number from `EAX` and
 arguments from `EBX/ECX/EDX`, dispatches, and writes the result back into the
-saved `EAX`.
+saved `EAX`. Implemented calls: `write` (1), `exit` (2), `getpid` (3),
+`yield` (4), `sleep` (5). `getpid` shows the round trip — the program reads its
+pid from `EAX` and passes it to `exit`, so the kernel prints its own task id.
 
 ### 3. Dropping to ring 3 (`enter_user_mode`)
 

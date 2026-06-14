@@ -13,9 +13,13 @@ _start:
     mov edx, msg_len
     int 0x80
 
-    ; exit(42)
+    ; getpid() -> eax
+    mov eax, 3             ; SYS_GETPID
+    int 0x80
+
+    ; exit(pid) — the kernel prints the code, so we see our own task id
+    mov ebx, eax
     mov eax, 2             ; SYS_EXIT
-    mov ebx, 42           ; distinctive exit code
     int 0x80
 
 .hang:

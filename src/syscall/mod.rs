@@ -9,11 +9,23 @@ use crate::libc::string::int_to_ascii;
 
 pub const SYS_WRITE: u32 = 1;
 pub const SYS_EXIT: u32 = 2;
+pub const SYS_GETPID: u32 = 3;
+pub const SYS_YIELD: u32 = 4;
+pub const SYS_SLEEP: u32 = 5;
 
 pub unsafe fn dispatch(num: u32, a1: u32, a2: u32, a3: u32) -> u32 {
     match num {
         SYS_WRITE => sys_write(a1, a2 as *const u8, a3 as usize),
         SYS_EXIT => sys_exit(a1),
+        SYS_GETPID => crate::proc::task::current_id(),
+        SYS_YIELD => {
+            crate::proc::schedule();
+            0
+        }
+        SYS_SLEEP => {
+            crate::proc::sleep(a1); // a1 = milliseconds
+            0
+        }
         _ => u32::MAX, // unknown syscall
     }
 }

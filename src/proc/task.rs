@@ -90,6 +90,11 @@ pub unsafe fn count() -> usize {
     NUM_TASKS
 }
 
+/// Id of the currently running task (for the getpid syscall).
+pub unsafe fn current_id() -> u32 {
+    TASKS[CURRENT].id
+}
+
 /// (id, state-code) for task `i`: 0=Unused 1=Ready 2=Running 3=Blocked 4=Finished.
 pub unsafe fn get(i: usize) -> (u32, u8) {
     let code = match TASKS[i].state {
