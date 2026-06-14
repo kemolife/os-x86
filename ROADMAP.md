@@ -57,15 +57,16 @@ Prerequisite for everything else.
 
 ---
 
-## Stage 4 — User Space
+## Stage 4 — User Space (in progress)
 
-| Feature | Details |
-|---------|---------|
-| Ring 3 privilege | Add user-mode code/data segments to GDT (DPL=3). `iret` into ring 3 |
-| Syscall interface | `int 0x80` dispatch table. Start with `write`, `exit`, `read` |
-| ELF loader | Parse ELF32 binary, load segments into user address space, jump to entry point |
-| User stack | Allocate per-process user stack in low virtual memory |
-| `fork` / `exec` | Clone address space (`fork`), replace image with ELF (`exec`) |
+| Feature | Details | Status |
+|---------|---------|--------|
+| Ring 3 privilege | User code/data GDT descriptors (DPL 3) + TSS; `enter_user_mode` iret into ring 3 (`src/cpu/gdt.rs`) | ✓ |
+| Syscall interface | `int 0x80` gate (DPL 3) + dispatch: `sys_write`, `sys_exit` (`src/syscall`) | ✓ |
+| ELF loader | Parse ELF32, load segments into user memory, jump to entry | todo |
+| Per-process page tables | Real address-space isolation (identity map is shared+user for now) | todo |
+| User stack | Per-process user stack | partial (heap-allocated per launch) |
+| `fork` / `exec` | Clone address space; replace image with an ELF | todo |
 
 ---
 
