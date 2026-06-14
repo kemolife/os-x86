@@ -98,3 +98,24 @@ unsafe fn tss_ptr() -> *mut Tss {
 pub unsafe fn set_kernel_stack(esp: u32) {
     (*tss_ptr()).esp0 = esp;
 }
+
+/// Drop to ring 3: build an `iret` frame with the user selectors (RPL 3) and
+/// return into `entry` with `user_stack` as its stack. Does not return.
+pub unsafe fn enter_user_mode(entry: u32, user_stack: u32) -> ! {
+    core::arch::asm!(
+        "mov ax, 0x23",          // user data selector | RPL 3
+        "mov ds, ax",
+        "mov es, ax",
+        "mov fs, ax",
+        "mov gs, ax",
+        "push 0x23",             // SS
+        "push {stack}",          // ESP
+        "push 0x202",            // EFLAGS (IF = 1)
+        "push 0x1B",             // CS (user code | RPL 3)
+        "push {entry}",          // EIP
+        "iretd",                 // 32-bit iret (plain `iret` assembles to 16-bit iretw)
+        stack = in(reg) user_stack,
+        entry = in(reg) entry,
+        options(noreturn),
+    );
+}

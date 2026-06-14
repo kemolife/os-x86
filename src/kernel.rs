@@ -26,19 +26,6 @@ pub unsafe extern "C" fn kernel_main() {
     init_keyboard();
     keyboard_set_handler(user_input);
     crate::cpu::isr::syscall_install();
-    // Ring-0 syscall test: invoke int 0x80 SYS_WRITE directly.
-    {
-        let msg = b"[syscall write OK]\n";
-        let ret: u32;
-        core::arch::asm!(
-            "int 0x80",
-            inout("eax") crate::syscall::SYS_WRITE => ret,
-            in("ebx") 1u32,
-            in("ecx") msg.as_ptr(),
-            in("edx") msg.len(),
-        );
-        let _ = ret;
-    }
     crate::drivers::ata::probe();
     // Read HELLO.TXT off a FAT12 disk (primary master), print its contents.
     {
@@ -58,10 +45,11 @@ pub unsafe extern "C" fn kernel_main() {
     core::arch::asm!("int 3", options(nostack));
     core::arch::asm!("int 1", options(nostack));
 
-    // Multitasking demo: two ring-0 kernel threads, preempted by the timer.
+    // Multitasking demo: two ring-0 kernel threads + one ring-3 user program.
     crate::proc::init();
     crate::proc::spawn(thread_a);
     crate::proc::spawn(thread_b);
+    crate::proc::spawn(user_launcher);
     crate::proc::enable();
 
     kprint(b"Type something, it will go through the kernel\n\0".as_ptr());
@@ -96,6 +84,35 @@ unsafe fn heap_selftest() {
     }
     // boxed + v dropped here -> space returned and coalesced
     crate::mm::heap::print_stats();
+}
+
+// Ring-3 user program: talks to the kernel only through int 0x80 syscalls.
+extern "C" fn user_program() {
+    let msg = b"Hello from ring 3 via syscall!\n";
+    unsafe {
+        core::arch::asm!(
+            "int 0x80",
+            in("eax") 1u32,            // SYS_WRITE
+            in("ebx") 1u32,            // fd
+            in("ecx") msg.as_ptr(),
+            in("edx") msg.len(),
+            options(nostack),
+        );
+        core::arch::asm!(
+            "int 0x80",
+            in("eax") 2u32,            // SYS_EXIT
+            in("ebx") 0u32,
+            options(nostack, noreturn),
+        );
+    }
+}
+
+// Kernel thread that allocates a user stack and drops into the ring-3 program.
+extern "C" fn user_launcher() {
+    unsafe {
+        let stack = crate::mm::heap::kmalloc(4096) as u32 + 4096;
+        crate::cpu::gdt::enter_user_mode(user_program as *const () as u32, stack);
+    }
 }
 
 fn spin_delay() {

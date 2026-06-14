@@ -10,6 +10,7 @@ use crate::mm::pmm;
 
 const PAGE_PRESENT: u32 = 1 << 0;
 const PAGE_WRITE: u32 = 1 << 1;
+const PAGE_USER: u32 = 1 << 2; // accessible from ring 3
 
 /// Number of 4MB page tables to identity-map (16MB covers the kernel, the
 /// bitmap, the bump heap, VGA, and the first slice of extended RAM).
@@ -27,9 +28,11 @@ pub unsafe fn init() {
         let table = pmm::alloc_frame().expect("no frame for page table") as *mut u32;
         for i in 0..1024 {
             let phys = ((t * 1024 + i) * 0x1000) as u32;
-            *table.add(i) = phys | PAGE_PRESENT | PAGE_WRITE;
+            // USER bit set: ring-3 code runs in this identity map for now (no
+            // address-space isolation yet — that comes with per-process tables).
+            *table.add(i) = phys | PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
         }
-        *dir.add(t) = (table as u32) | PAGE_PRESENT | PAGE_WRITE;
+        *dir.add(t) = (table as u32) | PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
     }
 
     PAGE_DIR = dir;
