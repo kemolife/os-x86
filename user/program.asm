@@ -1,7 +1,8 @@
 ; A freestanding ring-3 user program. Talks to the kernel only via int 0x80.
-; Linked at virtual address 0x400000 (4MB) — inside the user-accessible
-; identity map. Built into an ELF32 executable and placed on the FAT12 disk;
-; the kernel's ELF loader reads it, loads its segment, and enters it at ring 3.
+; Linked at virtual address 0x40000000 (1GB) — its own user address space,
+; separate from the kernel. Built into an ELF32 executable and placed on the
+; FAT12 disk; the kernel's ELF loader maps it into a fresh page directory and
+; enters it at ring 3.
 [bits 32]
 global _start
 

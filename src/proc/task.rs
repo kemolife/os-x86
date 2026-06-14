@@ -101,6 +101,11 @@ pub unsafe fn current_id() -> u32 {
     TASKS[CURRENT].id
 }
 
+/// Bind a page directory to the current task (so context switches restore it).
+pub unsafe fn set_current_page_dir(dir: u32) {
+    TASKS[CURRENT].page_dir = dir;
+}
+
 /// (id, state-code) for task `i`: 0=Unused 1=Ready 2=Running 3=Blocked 4=Finished.
 pub unsafe fn get(i: usize) -> (u32, u8) {
     let code = match TASKS[i].state {

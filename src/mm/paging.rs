@@ -28,11 +28,11 @@ pub unsafe fn init() {
         let table = pmm::alloc_frame().expect("no frame for page table") as *mut u32;
         for i in 0..1024 {
             let phys = ((t * 1024 + i) * 0x1000) as u32;
-            // USER bit set: ring-3 code runs in this identity map for now (no
-            // address-space isolation yet — that comes with per-process tables).
-            *table.add(i) = phys | PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
+            // Supervisor-only: the kernel identity map is not reachable from
+            // ring 3. User programs get their own pages in a separate space.
+            *table.add(i) = phys | PAGE_PRESENT | PAGE_WRITE;
         }
-        *dir.add(t) = (table as u32) | PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
+        *dir.add(t) = (table as u32) | PAGE_PRESENT | PAGE_WRITE;
     }
 
     PAGE_DIR = dir;
@@ -42,6 +42,40 @@ pub unsafe fn init() {
     core::arch::asm!("mov {}, cr0", out(reg) cr0, options(nostack));
     cr0 |= 1 << 31; // PG
     core::arch::asm!("mov cr0, {}", in(reg) cr0, options(nostack));
+}
+
+/// Create a new address space: a fresh page directory that shares the kernel's
+/// identity-mapped (supervisor) low memory, with no user mappings yet. Returns
+/// the directory's physical address.
+pub unsafe fn new_address_space() -> u32 {
+    let dir = pmm::alloc_frame().expect("no frame for page directory") as *mut u32;
+    for i in 0..1024 {
+        *dir.add(i) = 0;
+    }
+    // Share the kernel's identity-map page tables so the kernel stays mapped
+    // (supervisor) in every address space — needed for syscalls/interrupts.
+    for i in 0..IDENTITY_TABLES {
+        *dir.add(i) = *PAGE_DIR.add(i);
+    }
+    dir as u32
+}
+
+/// Map a user-accessible page `virt` -> `phys` in the address space `dir_phys`,
+/// creating the page table if needed. `dir_phys` need not be the active space.
+pub unsafe fn map_user_page(dir_phys: u32, virt: u32, phys: u32) {
+    let dir = dir_phys as *mut u32;
+    let di = (virt >> 22) as usize;
+    let ti = ((virt >> 12) & 0x3FF) as usize;
+    if *dir.add(di) & PAGE_PRESENT == 0 {
+        let table = pmm::alloc_frame().expect("no frame for page table") as u32;
+        let t = table as *mut u32;
+        for i in 0..1024 {
+            *t.add(i) = 0;
+        }
+        *dir.add(di) = table | PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
+    }
+    let table = (*dir.add(di) & !0xFFF) as *mut u32;
+    *table.add(ti) = (phys & !0xFFF) | PAGE_PRESENT | PAGE_WRITE | PAGE_USER;
 }
 
 /// Switch the active address space (load CR3 with a page-directory physical addr).

@@ -38,7 +38,7 @@ run: os-image.bin
 user.elf:
 	mkdir -p bin/user
 	nasm -f elf32 user/program.asm -o bin/user/program.o
-	$(LD) -m elf_i386 -Ttext 0x400000 -e _start -o bin/user/init.elf bin/user/program.o
+	$(LD) -m elf_i386 -Ttext 0x40000000 -e _start -o bin/user/init.elf bin/user/program.o
 
 %.o: %.asm | dir
 	nasm $< -f elf -o $@
