@@ -65,7 +65,7 @@ clean error instead of hanging.
 
 The kernel's `ata::probe()` reads sector 0 of the primary master and dumps the
 first 16 bytes to serial. Create a data disk with a known marker, attach it as
-the primary IDE disk (`-hda`), and check the bytes.
+the primary IDE disk (`if=ide`), and check the bytes.
 
 ```bash
 docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
@@ -75,7 +75,7 @@ docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
   printf "ATAOKDISK0123456" | dd of=/tmp/disk.img bs=1 count=16 conv=notrunc 2>/dev/null
   timeout 6 qemu-system-i386 -m 128 \
     -drive file=os-image.bin,format=raw,if=floppy \
-    -hda /tmp/disk.img -nographic -serial file:/tmp/r.log -monitor null 2>/dev/null || true
+    -drive file=/tmp/disk.img,format=raw,if=ide -nographic -serial file:/tmp/r.log -monitor null 2>/dev/null || true
   tr -d "\000" < /tmp/r.log | grep ata:'
 ```
 
@@ -89,7 +89,7 @@ ata: sector 0 = 0x41 0x54 0x41 0x4f 0x4b 0x44 0x49 0x53 0x4b 0x30 0x31 0x32 0x33
 (`0x41`='A', `0x54`='T', …). The driver issued a real LBA28 read command to the
 emulated disk and pulled back the exact bytes we wrote — so sector reads work.
 
-Without `-hda`, the same probe prints:
+Without an IDE disk, the same probe prints:
 
 ```
 ata: read error (no disk?)

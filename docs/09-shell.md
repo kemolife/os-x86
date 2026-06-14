@@ -67,7 +67,7 @@ docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
 # run with a curses display so you can type
 docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
   qemu-system-i386 -m 128 -boot a -drive file=os-image.bin,format=raw,if=floppy \
-  -hda fat.img -display curses
+  -drive file=fat.img,format=raw,if=ide -display curses
 ```
 
 At the `>` prompt try: `help`, `mem`, `ps`, `ls`, `cat hello.txt`, `run init.elf`.

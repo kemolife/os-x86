@@ -116,7 +116,7 @@ docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
   mkfs.fat -F 12 /tmp/fat.img >/dev/null 2>&1
   mcopy -i /tmp/fat.img bin/user/init.elf ::INIT.ELF
   timeout 8 qemu-system-i386 -m 128 -boot a \
-    -drive file=os-image.bin,format=raw,if=floppy -hda /tmp/fat.img \
+    -drive file=os-image.bin,format=raw,if=floppy -drive file=/tmp/fat.img,format=raw,if=ide \
     -nographic -serial file:/tmp/r.log -monitor null 2>/dev/null || true
   tr -d "\000" < /tmp/r.log | grep -E "Hello from an ELF|exit code"'
 ```

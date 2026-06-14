@@ -64,7 +64,7 @@ cluster = if cluster & 1 == 1 { raw >> 4 } else { raw & 0xFFF };
 
 ## How to test it
 
-Create a FAT12 image with a file, attach it as the primary IDE disk (`-hda`),
+Create a FAT12 image with a file, attach it as the primary IDE disk (`if=ide`),
 and force floppy boot (the FAT image has its own boot signature, so without
 `-boot a` the BIOS would try to boot *it*):
 
@@ -76,7 +76,7 @@ docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
   printf "Hello from FAT12 filesystem!" > /tmp/h.txt
   mcopy -i /tmp/fat.img /tmp/h.txt ::HELLO.TXT
   timeout 6 qemu-system-i386 -m 128 -boot a \
-    -drive file=os-image.bin,format=raw,if=floppy -hda /tmp/fat.img \
+    -drive file=os-image.bin,format=raw,if=floppy -drive file=/tmp/fat.img,format=raw,if=ide \
     -nographic -serial file:/tmp/r.log -monitor null 2>/dev/null || true
   tr -d "\000" < /tmp/r.log | grep "fs: HELLO"'
 ```
