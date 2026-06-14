@@ -111,3 +111,59 @@ E820 map
                       └─ VFS
                            └─ ATA/IDE → FAT → Shell
 ```
+
+---
+
+# Alternative track — Microkernel direction (optional)
+
+The stages above grow this kernel the **monolithic, Unix-flavoured** way (like
+Linux): drivers, filesystem, and the shell all live *inside* the kernel. There
+is a different philosophy we can branch into instead — a **microkernel**, where
+the kernel does almost nothing and everything else is a user-space program that
+communicates by message passing. This is the QNX / seL4 / Fuchsia lineage.
+
+This is a parallel direction, not a continuation — it reuses what we have
+(tasks, ring 3, address-space isolation, the Blocked/Ready states) but changes
+the *structure*.
+
+## Why it matters / what it teaches
+
+- **IPC (Inter-Process Communication)** is the heart of the system — the kernel
+  becomes mostly a message router.
+- **Drivers and the filesystem run in ring 3** as ordinary programs; clients
+  request service by sending a message, not by calling into the kernel.
+- **Fault isolation**: a crashed driver is one restartable server, not a dead
+  kernel.
+- **Capabilities**: explicit, unforgeable tokens decide who may talk to whom —
+  a stronger security model than user/root.
+- The **cost**: a file read becomes several context switches, so you feel why
+  IPC speed is everything.
+
+## Where this style is used in the real world
+
+Safety-, real-time-, and security-critical systems (not desktops): **QNX** in
+~200M+ cars, **L4/OKL4** in phone modems (billions shipped), **MINIX 3** inside
+Intel's Management Engine, **seL4** in defense/aerospace, **INTEGRITY** in
+aircraft avionics, **Fuchsia/Zircon** in Google Nest devices.
+
+## Steps
+
+| Step | Detail | Status |
+|------|--------|--------|
+| IPC syscalls | `send(dst_pid, msg)` / `recv() -> (src, msg)`; `recv` blocks (reuse the Blocked state), `send` wakes the receiver. Kernel copies the message and flips task states | todo |
+| Echo server + client | A ring-3 server task that loops `recv` → reply; a client that sends a request and prints the reply — the minimal microkernel demo | todo |
+| Move a driver out | Run the FAT12 / disk logic as a user-space **filesystem server**; the kernel only routes requests to it (the real lesson) | todo |
+| Ports / capabilities | Address servers by unforgeable handles instead of raw pids; restrict who can message whom | todo |
+| Server restart | Detect a crashed server and restart it without taking down the kernel (fault isolation) | todo |
+
+## Relationship to the main track
+
+```
+Multitasking + Ring 3 + isolation  (already built)
+        ├─ Monolithic track  → VFS, drivers-in-kernel, fork/exec, user shell
+        └─ Microkernel track → IPC → user-space servers → capabilities
+```
+
+Both build on the same foundation; they diverge in *where the work lives*.
+Pick one to explore, or do the microkernel track as a contained side-quest
+(the IPC + echo-server milestone is ~150 lines).
