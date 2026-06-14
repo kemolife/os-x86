@@ -20,11 +20,14 @@ Bare-metal x86 OS built from scratch in **Rust**. Covers a NASM bootloader, prot
   by the timer IRQ, assembly context switch, `sleep(ms)`
 - Storage: ATA (IDE) PIO disk driver (read + write), FAT12 filesystem
   (`read_file` / `write_file`)
-- Interactive kernel shell: `help mem ps ls cat save run uptime clear`
-- User space: ring-3 execution (user GDT segments + TSS), `int 0x80` syscalls
-  (`write`, `exit`)
+- Interactive kernel shell with lowercase/shift keyboard + ↑/↓ history:
+  `help mem ps ls cat save run uptime clear halt poweroff`
+- User space: ring-3 execution with per-process page tables (isolation), a TSS,
+  `int 0x80` syscalls (`write`, `exit`, `getpid`, `yield`, `sleep`), an ELF
+  loader; finished tasks are reaped
+- Two kernels in one workspace: **monolithic** (`mono`) and a **microkernel**
+  (`micro`, IPC message passing) sharing the `kcore` HAL
 - Minimal libc: `string`, `mem` (legacy bump allocator)
-- Interactive kernel shell: `END` halts CPU, `PAGE` tests `kmalloc`
 
 ## Project Layout
 
@@ -81,7 +84,7 @@ See [ROADMAP-microkernel.md](ROADMAP-microkernel.md) for the microkernel track.
 ## Toolchain
 
 The kernel is compiled with the Rust **nightly** toolchain using `build-std`
-(core + compiler_builtins) against a custom `i686-unknown-none` target, then
+(core + compiler_builtins + alloc) against a custom `i686-unknown-none` target, then
 linked with `i686-linux-gnu-ld`. The provided Dockerfile bundles nightly Rust,
 NASM, the i686 cross-linker, and QEMU — use it to avoid host setup.
 
@@ -119,15 +122,14 @@ docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
 ### Debug inside Docker
 
 ```bash
-# build the ELF (with symbols) alongside the image
-docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 make kernel.elf
-
-# Terminal 1 — boot with GDB stub exposed
-docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os --network host os-x86 qemu-system-i386 -s -S -drive file=os-image-mono.bin,format=raw,if=floppy -nographic
-
-# Terminal 2 — attach GDB
+# Terminal 1 — boot with the GDB stub exposed
 docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os --network host os-x86 \
-    gdb -ex "target remote localhost:1234" -ex "symbol-file bin/kernel/kernel.elf"
+    qemu-system-i386 -s -S -drive file=os-image-mono.bin,format=raw,if=floppy -nographic
+
+# Terminal 2 — attach GDB (symbols: point symbol-file at the linked ELF if you
+# add an .elf link target; the raw image debugs without symbols)
+docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os --network host os-x86 \
+    gdb -ex "target remote localhost:1234"
 ```
 
 ### Clean
@@ -170,20 +172,23 @@ BIOS → MBR (bootstrap.asm, 0x7c00)
   → sets up GDT
   → switches to 32-bit protected mode
   → jumps to kernel_entry.asm (_start at 0x10000)
-    → calls kernel_main() [Rust]
+    → calls kernel_main() [Rust, mono]
+      → register kcore hooks (syscall + timer-tick)
       → init_serial()        — COM1 8N1
       → mm::e820 / pmm / paging / heap — parse RAM, frame allocator, enable
                                paging, bring up the global-allocator heap
+      → gdt::init()          — kernel + user segments + TSS
       → screen_init()        — configure VGA (80×25, 0xb8000)
-      → mem_init(0x50000)    — legacy bump heap base (for the PAGE demo)
-      → isr_install()        — register CPU exception handlers (0–31)
-      → irq_install()        — remap PIC, register IRQ handlers (32–47), enable interrupts
-      → init_timer(50)       — start PIT at 50 Hz
-      → init_keyboard()      — register IRQ1 handler
-      → keyboard_set_handler(user_input) — connect keyboard → kernel
-      → waits for keyboard input via IRQ1 callback
-        → user_input()       — handles "END" / "PAGE" commands
+      → isr_install / irq_install / init_timer(50) / init_keyboard
+      → keyboard_set_handler(shell::run) — keyboard line → shell
+      → syscall_install()    — int 0x80 gate (DPL 3)
+      → proc::init / enable   — scheduler + idle task
+      → shell prompt; type help / ls / cat / run / save / ps / mem / poweroff
 ```
+
+(The `micro` kernel's `kernel_main` is far smaller: bring up the HAL, then run
+an echo server + client as tasks talking over IPC — see
+[ROADMAP-microkernel.md](ROADMAP-microkernel.md).)
 
 ## Memory Map
 
@@ -194,7 +199,7 @@ BIOS → MBR (bootstrap.asm, 0x7c00)
 | `0x08000` | E820 memory map (count + entries) |
 | `0x10000` | Kernel loaded here (~120KB, ends ~`0x2F200`) |
 | `kernel_end` | PMM frame bitmap |
-| `0x50000` | Legacy bump heap (`mem.rs`, used by `PAGE`) |
+| `0x50000` | Legacy bump heap (`mem.rs`) |
 | `0x90000` | Protected-mode stack top |
 | `0xB8000` | VGA text framebuffer |
 | `0x100000`+ | Extended RAM — PMM frames: page tables, then the 1MB kernel heap |
@@ -213,11 +218,15 @@ output means, with every abbreviation explained). Start with
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for planned stages: memory management, multitasking, storage, user space, and advanced features. Future subsystems land as new module folders under `src/` (`mm/`, `proc/`, `fs/`, `syscall/`).
+See [ROADMAP.md](ROADMAP.md) (monolithic track) and
+[ROADMAP-microkernel.md](ROADMAP-microkernel.md) (microkernel track) for the
+planned stages and what's done.
 
 ## Known Limitations
 
-- `kmalloc` is a bump allocator — no free, no paging
-- No user space / privilege separation yet
-- Keyboard only handles uppercase + basic punctuation (no shift state)
-- Sector count in `bootstrap.asm` (`mov cx, 250`) must stay ≥ `ceil(kernel.bin / 512)`; 16-bit, room for ~1024 sectors before the stack at `0x90000`
+- No `fork`/`exec`; the shell is a kernel built-in, not a user process
+- Kernel heap is a fixed 1MB and can't grow yet
+- FAT12 is read + create-file only — no overwrite, delete, or subdirectories
+- Microkernel (`micro`) IPC is step 1: a `u32` message, ring-0 server tasks
+- Single CPU, no SMP
+- Sector count in `bootstrap.asm` (`mov cx, 400`) must stay ≥ `ceil(kernel.bin / 512)`; 16-bit, room for ~1024 sectors before the stack at `0x90000`
