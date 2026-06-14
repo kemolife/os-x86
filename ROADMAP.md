@@ -49,7 +49,9 @@ Prerequisite for everything else.
 | Feature | Details | Status |
 |---------|---------|--------|
 | ATA/IDE PIO driver | LBA28 sector reads via ports `0x1F0`–`0x1F7`; floating-bus/timeout guard so a diskless boot doesn't hang (`src/drivers/ata.rs`) | ✓ (read) |
-| ATA writes / IRQ-driven | Currently polled reads only | todo |
+| ATA writes | LBA28 polled sector writes + cache flush (`write_sectors`) | ✓ |
+| FAT12 write | Allocate clusters, write data + FAT chain + dir entry (`write_file`); shell `save` | ✓ |
+| IRQ-driven transfers | Currently polled | todo |
 | FAT12 read | Parse BPB + root dir + FAT chains; `read_file(8.3 name)` (`src/fs/fat12.rs`) | ✓ |
 | Partition table parsing | Read MBR partition table to find a FAT partition | todo |
 | FAT12/16 writes + readdir | create/append files, list directories | todo |

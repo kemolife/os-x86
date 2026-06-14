@@ -8,7 +8,7 @@
 //!   0x1F0 data (16-bit)   0x1F2 sector count   0x1F3-5 LBA low/mid/high
 //!   0x1F6 drive/head      0x1F7 status (read) / command (write)
 
-use crate::cpu::ports::{port_byte_in, port_byte_out, port_word_in};
+use crate::cpu::ports::{port_byte_in, port_byte_out, port_word_in, port_word_out};
 
 const DATA: u16 = 0x1F0;
 const SECCOUNT: u16 = 0x1F2;
@@ -19,6 +19,8 @@ const DRIVE: u16 = 0x1F6;
 const STATUS_CMD: u16 = 0x1F7;
 
 const CMD_READ_SECTORS: u8 = 0x20;
+const CMD_WRITE_SECTORS: u8 = 0x30;
+const CMD_FLUSH_CACHE: u8 = 0xE7;
 
 const ST_ERR: u8 = 1 << 0; // error
 const ST_DRQ: u8 = 1 << 3; // data request ready
@@ -91,6 +93,38 @@ pub unsafe fn read_sectors(lba: u32, count: u8, buf: *mut u8) -> bool {
             off += 2;
         }
     }
+    true
+}
+
+/// Write `count` 512-byte sectors from `buf` to LBA `lba` (primary master),
+/// then flush the drive cache. Returns false on a drive error.
+pub unsafe fn write_sectors(lba: u32, count: u8, buf: *const u8) -> bool {
+    if !wait_not_busy() {
+        return false;
+    }
+    port_byte_out(DRIVE, 0xE0 | ((lba >> 24) & 0x0F) as u8);
+    for _ in 0..4 {
+        let _ = port_byte_in(STATUS_CMD);
+    }
+    port_byte_out(SECCOUNT, count);
+    port_byte_out(LBA_LO, (lba & 0xFF) as u8);
+    port_byte_out(LBA_MID, ((lba >> 8) & 0xFF) as u8);
+    port_byte_out(LBA_HI, ((lba >> 16) & 0xFF) as u8);
+    port_byte_out(STATUS_CMD, CMD_WRITE_SECTORS);
+
+    let mut off = 0usize;
+    for _ in 0..count {
+        if !wait_data_ready() {
+            return false;
+        }
+        for _ in 0..256 {
+            let w = *buf.add(off) as u16 | (*buf.add(off + 1) as u16) << 8;
+            port_word_out(DATA, w);
+            off += 2;
+        }
+    }
+    port_byte_out(STATUS_CMD, CMD_FLUSH_CACHE);
+    wait_not_busy();
     true
 }
 

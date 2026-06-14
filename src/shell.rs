@@ -97,7 +97,7 @@ pub fn run(input: *mut u8) {
         if *s == 0 {
             // empty line
         } else if cmd_is(s, b"help") {
-            puts(b"commands: help mem ps ls cat <f> run <f> uptime clear\n\0".as_ptr());
+            puts(b"commands: help mem ps ls cat <f> save <f> run <f> uptime clear\n\0".as_ptr());
         } else if cmd_is(s, b"mem") {
             puts(b"pmm: \0".as_ptr());
             putn(pmm::free_frames() as i32);
@@ -142,6 +142,14 @@ pub fn run(input: *mut u8) {
                     puts(b"\n\0".as_ptr());
                 }
                 None => puts(b"cat: file not found\n\0".as_ptr()),
+            }
+        } else if cmd_is(s, b"save") {
+            let name = to_83(arg_of(s));
+            let content = b"saved by the os-x86 shell\n";
+            if fat12::write_file(&name, content.as_ptr(), content.len()) {
+                puts(b"save: ok\n\0".as_ptr());
+            } else {
+                puts(b"save: failed (no disk / full)\n\0".as_ptr());
             }
         } else if cmd_is(s, b"run") {
             PENDING_EXEC = to_83(arg_of(s));

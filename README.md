@@ -18,7 +18,9 @@ Bare-metal x86 OS built from scratch in **Rust**. Covers a NASM bootloader, prot
   `#[global_allocator]` (so `alloc::{Box, Vec, ...}` work)
 - Preemptive multitasking: ring-0 kernel threads, round-robin scheduler driven
   by the timer IRQ, assembly context switch, `sleep(ms)`
-- Storage: ATA (IDE) PIO disk driver, read-only FAT12 filesystem (`read_file`)
+- Storage: ATA (IDE) PIO disk driver (read + write), FAT12 filesystem
+  (`read_file` / `write_file`)
+- Interactive kernel shell: `help mem ps ls cat save run uptime clear`
 - User space: ring-3 execution (user GDT segments + TSS), `int 0x80` syscalls
   (`write`, `exit`)
 - Minimal libc: `string`, `mem` (legacy bump allocator)

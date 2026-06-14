@@ -89,5 +89,30 @@ fs: HELLO.TXT = Hello from FAT12 filesystem!
 
 **What it means:** the kernel parsed the FAT12 BPB, found the `HELLO.TXT`
 directory entry, followed its cluster chain through the FAT, and read the file's
-bytes off the disk — a real "open a file by name" end to end. Without `-hda`, the
-same path prints `fs: HELLO.TXT not found (no FAT12 disk?)` and boot continues.
+bytes off the disk — a real "open a file by name" end to end.
+
+## Writing files
+
+`write_file(name, data, len)` is the write path (shell command `save <file>`):
+
+1. Read the BPB; load the FAT into memory.
+2. Scan the FAT for enough free clusters (entry value 0).
+3. Write the data into those clusters (zero-padding the last) via
+   `ata::write_sectors`.
+4. Link the clusters into a chain (last entry = `0xFFF`) and write every FAT
+   copy back to disk.
+5. Write a directory entry (name, attribute, first cluster, size) into the first
+   free root-dir slot.
+
+After `save notes.txt` in the shell, host `mtools` on the same disk image sees
+and reads it:
+
+```
+$ mdir  -i fat.img ::         # NOTES.TXT  26  ...
+$ mtype -i fat.img ::NOTES.TXT
+saved by the os-x86 shell
+```
+
+That cross-check (an independent FAT implementation reads what we wrote) proves
+the write actually hit the disk, not just a cache. Not yet supported: overwrite,
+delete, and subdirectories.
