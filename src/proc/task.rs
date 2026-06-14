@@ -75,6 +75,16 @@ pub unsafe fn sleep(ms: u32) {
     schedule();
 }
 
+/// Terminate the current task and switch away. If scheduling isn't running
+/// (or this is the only task), it returns and the caller continues.
+pub unsafe fn exit_current() {
+    if !ENABLED || NUM_TASKS < 2 {
+        return;
+    }
+    TASKS[CURRENT].state = State::Finished;
+    schedule();
+}
+
 /// Wake any Blocked task whose deadline has passed (called from the timer IRQ).
 pub unsafe fn wake_sleepers(now: u32) {
     for i in 0..NUM_TASKS {

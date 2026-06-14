@@ -297,6 +297,13 @@ isr31:
     push byte 31
     jmp isr_common_stub
 
+; 128 (0x80): system call. No CPU error code, so push a dummy 0.
+global isr128
+isr128:
+    push byte 0
+    push 128
+    jmp isr_common_stub
+
 ; IRQ handlers
 irq0:
 	push byte 0

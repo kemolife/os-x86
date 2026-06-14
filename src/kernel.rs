@@ -25,6 +25,20 @@ pub unsafe extern "C" fn kernel_main() {
     init_timer(50);
     init_keyboard();
     keyboard_set_handler(user_input);
+    crate::cpu::isr::syscall_install();
+    // Ring-0 syscall test: invoke int 0x80 SYS_WRITE directly.
+    {
+        let msg = b"[syscall write OK]\n";
+        let ret: u32;
+        core::arch::asm!(
+            "int 0x80",
+            inout("eax") crate::syscall::SYS_WRITE => ret,
+            in("ebx") 1u32,
+            in("ecx") msg.as_ptr(),
+            in("edx") msg.len(),
+        );
+        let _ = ret;
+    }
     crate::drivers::ata::probe();
     // Read HELLO.TXT off a FAT12 disk (primary master), print its contents.
     {

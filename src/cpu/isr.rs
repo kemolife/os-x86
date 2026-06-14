@@ -1,4 +1,4 @@
-use crate::cpu::idt::{set_idt_gate, set_idt};
+use crate::cpu::idt::{set_idt_gate, set_idt_gate_flags, set_idt};
 use crate::cpu::ports::port_byte_out;
 use crate::drivers::screen::kprint;
 use crate::libc::string::{int_to_ascii, hex_to_ascii};
@@ -24,6 +24,12 @@ extern "C" {
     fn isr24(); fn isr25(); fn isr26(); fn isr27(); fn isr28(); fn isr29(); fn isr30(); fn isr31();
     fn irq0();  fn irq1();  fn irq2();  fn irq3();  fn irq4();  fn irq5();  fn irq6();  fn irq7();
     fn irq8();  fn irq9();  fn irq10(); fn irq11(); fn irq12(); fn irq13(); fn irq14(); fn irq15();
+    fn isr128();
+}
+
+/// Install the int 0x80 syscall gate with DPL=3 so ring-3 code can invoke it.
+pub unsafe fn syscall_install() {
+    set_idt_gate_flags(128, isr128 as *const () as u32, 0xEE);
 }
 
 pub unsafe fn isr_install() {
@@ -107,8 +113,16 @@ static EXCEPTION_MESSAGES: [&[u8]; 32] = [
 ];
 
 #[no_mangle]
-pub unsafe extern "C" fn isr_handler(r: *const Registers) {
+pub unsafe extern "C" fn isr_handler(r: *mut Registers) {
     let int_no = (*r).int_no as usize;
+
+    // System call (int 0x80): EAX = number, EBX/ECX/EDX = args. The return
+    // value is written back into the saved EAX so the caller receives it.
+    if int_no == 128 {
+        let ret = crate::syscall::dispatch((*r).eax, (*r).ebx, (*r).ecx, (*r).edx);
+        (*r).eax = ret;
+        return;
+    }
 
     // Page fault: try to recover (demand paging) before reporting anything.
     if int_no == 14 {

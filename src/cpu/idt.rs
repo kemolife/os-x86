@@ -28,11 +28,17 @@ static mut IDT: [IdtGate; IDT_ENTRIES] = [IdtGate {
 static mut IDT_REG: IdtRegister = IdtRegister { limit: 0, base: 0 };
 
 pub unsafe fn set_idt_gate(n: usize, handler: u32) {
+    set_idt_gate_flags(n, handler, 0x8E); // present, ring 0, 32-bit interrupt gate
+}
+
+/// Like `set_idt_gate` but with explicit flags — e.g. 0xEE for a ring-3-callable
+/// gate (DPL=3), needed for the `int 0x80` syscall vector.
+pub unsafe fn set_idt_gate_flags(n: usize, handler: u32, flags: u8) {
     let idt = &raw mut IDT; // raw pointer to the static — no reference created
     (*idt)[n].low_offset = (handler & 0xFFFF) as u16;
     (*idt)[n].sel = KERNEL_CS;
     (*idt)[n].always0 = 0;
-    (*idt)[n].flags = 0x8E;
+    (*idt)[n].flags = flags;
     (*idt)[n].high_offset = ((handler >> 16) & 0xFFFF) as u16;
 }
 
