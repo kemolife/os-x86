@@ -17,7 +17,8 @@ Bare-metal x86 OS built from scratch in **Rust**. Covers a NASM bootloader, prot
   with on-demand mapping, page-fault handler (reports CR2), kernel heap with a
   `#[global_allocator]` (so `alloc::{Box, Vec, ...}` work)
 - Preemptive multitasking: ring-0 kernel threads, round-robin scheduler driven
-  by the timer IRQ, assembly context switch
+  by the timer IRQ, assembly context switch, `sleep(ms)`
+- Storage: ATA (IDE) PIO disk driver, read-only FAT12 filesystem (`read_file`)
 - Minimal libc: `string`, `mem` (legacy bump allocator)
 - Interactive kernel shell: `END` halts CPU, `PAGE` tests `kmalloc`
 
@@ -56,7 +57,9 @@ src/                    Rust kernel (#![no_std], staticlib)
     paging.rs           page dir/tables, identity map, on-demand mapping
     heap.rs             first-fit free-list heap + #[global_allocator]
   proc/                 multitasking
-    task.rs             task table, spawn(), round-robin schedule()
+    task.rs             task table, spawn(), round-robin schedule(), sleep()
+  fs/                   filesystems
+    fat12.rs            read-only FAT12 (read_file by 8.3 name)
 
 kernel.ld               linker script (links kernel at 0x10000)
 i686-kernel.json        custom bare-metal i686 target spec

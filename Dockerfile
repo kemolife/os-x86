@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     binutils-i686-linux-gnu \
     gdb \
     qemu-system-x86 \
+    dosfstools \
+    mtools \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

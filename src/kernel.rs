@@ -24,6 +24,19 @@ pub unsafe extern "C" fn kernel_main() {
     init_keyboard();
     keyboard_set_handler(user_input);
     crate::drivers::ata::probe();
+    // Read HELLO.TXT off a FAT12 disk (primary master), print its contents.
+    {
+        let mut buf = [0u8; 128];
+        match crate::fs::fat12::read_file(b"HELLO   TXT", buf.as_mut_ptr(), 127) {
+            Some(n) => {
+                buf[n.min(127)] = 0;
+                serial_write_str(b"fs: HELLO.TXT = \0".as_ptr());
+                serial_write_str(buf.as_ptr());
+                serial_write_str(b"\n\0".as_ptr());
+            }
+            None => serial_write_str(b"fs: HELLO.TXT not found (no FAT12 disk?)\n\0".as_ptr()),
+        }
+    }
 
     core::arch::asm!("int 2", options(nostack));
     core::arch::asm!("int 3", options(nostack));

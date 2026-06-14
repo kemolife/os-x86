@@ -15,6 +15,7 @@ Read them in order — each builds on the previous.
 | 04 | [Memory management](04-memory.md) | E820 map, frame allocator, paging, kernel heap |
 | 05 | [Multitasking](05-multitasking.md) | Context switch, scheduler, threads, `sleep` |
 | 06 | [Storage (ATA)](06-storage.md) | Reading disk sectors |
+| 07 | [Filesystem (FAT12)](07-filesystem.md) | Reading named files |
 
 ## Build and run
 

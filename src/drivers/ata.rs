@@ -68,6 +68,11 @@ pub unsafe fn read_sectors(lba: u32, count: u8, buf: *mut u8) -> bool {
     }
     // 0xE0 = LBA mode, master drive; top 4 LBA bits go in the low nibble.
     port_byte_out(DRIVE, 0xE0 | ((lba >> 24) & 0x0F) as u8);
+    // 400ns settle after drive select: read the status port a few times so the
+    // BSY/DRQ bits reflect the newly selected drive, not the previous command.
+    for _ in 0..4 {
+        let _ = port_byte_in(STATUS_CMD);
+    }
     port_byte_out(SECCOUNT, count);
     port_byte_out(LBA_LO, (lba & 0xFF) as u8);
     port_byte_out(LBA_MID, ((lba >> 8) & 0xFF) as u8);

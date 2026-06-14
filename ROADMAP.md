@@ -50,8 +50,9 @@ Prerequisite for everything else.
 |---------|---------|--------|
 | ATA/IDE PIO driver | LBA28 sector reads via ports `0x1F0`–`0x1F7`; floating-bus/timeout guard so a diskless boot doesn't hang (`src/drivers/ata.rs`) | ✓ (read) |
 | ATA writes / IRQ-driven | Currently polled reads only | todo |
+| FAT12 read | Parse BPB + root dir + FAT chains; `read_file(8.3 name)` (`src/fs/fat12.rs`) | ✓ |
 | Partition table parsing | Read MBR partition table to find a FAT partition | todo |
-| FAT12 / FAT16 | Parse a FAT filesystem on a disk image. `open`, `read`, `readdir` | todo |
+| FAT12/16 writes + readdir | create/append files, list directories | todo |
 | VFS layer | Unified interface over storage drivers. `vfs_open()`, `vfs_read()`, `vfs_write()` | todo |
 
 ---
