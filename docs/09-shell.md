@@ -11,8 +11,8 @@ in ring 3 that reads input via syscalls.
 ## File structure
 
 ```
-src/shell.rs           command parsing + dispatch
-src/drivers/keyboard.rs lowercase + Shift layout, line buffering
+mono/src/shell.rs           command parsing + dispatch
+kcore/src/drivers/keyboard.rs lowercase + Shift layout, line buffering
 ```
 
 ## How it works
@@ -36,8 +36,21 @@ you type normally. Filenames are converted to FAT 8.3 form (`hello.txt` ->
 | `ls` | list files on the FAT12 disk | [filesystem](07-filesystem.md) |
 | `cat <file>` | print a file's contents | filesystem |
 | `run <file>` | load + run an ELF program in ring 3 | [user space](08-userspace.md) |
+| `save <file>` | write a file to the FAT12 disk | filesystem |
 | `uptime` | seconds since boot | timer |
 | `clear` | clear the screen | screen |
+| `halt` | stop the CPU (`cli; hlt`) | — |
+| `poweroff` | power the machine off (QEMU exits) | — |
+
+The keyboard echoes typed characters and the prompt to **both** the VGA screen
+and the serial port, so the shell is fully usable over `-nographic` (where your
+host terminal provides scrollback). The VGA text console is a fixed 80×25 and
+scrolls within itself but has no scrollback.
+
+**Command history:** press ↑ / ↓ to recall previous commands. The keyboard
+driver decodes the arrow keys' extended (`0xE0`-prefixed) scancodes, keeps a
+ring of the last 16 lines, and redraws the current line (on VGA + serial) when
+you browse. Mid-line editing (← / →, insert/delete) is not implemented yet.
 
 `run` doesn't exec inline (that would hijack the keyboard-IRQ context into ring
 3). Instead it spawns a task that ELF-execs the file, so the program runs under
@@ -50,7 +63,7 @@ The shell is interactive, so run with a display:
 ```bash
 # build kernel + user program + a FAT12 disk with both files
 docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
-  make && make user.elf
+  make mono && make user.elf
   dd if=/dev/zero of=fat.img bs=512 count=2880 2>/dev/null
   mkfs.fat -F 12 fat.img >/dev/null 2>&1
   echo "hello world" > h.txt; mcopy -i fat.img h.txt ::HELLO.TXT
@@ -58,8 +71,8 @@ docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
 
 # run with a curses display so you can type
 docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
-  qemu-system-i386 -m 128 -boot a -drive file=os-image.bin,format=raw,if=floppy \
-  -hda fat.img -display curses
+  qemu-system-i386 -m 128 -boot a -drive file=os-image-mono.bin,format=raw,if=floppy \
+  -drive file=fat.img,format=raw,if=ide -display curses
 ```
 
 At the `>` prompt try: `help`, `mem`, `ps`, `ls`, `cat hello.txt`, `run init.elf`.

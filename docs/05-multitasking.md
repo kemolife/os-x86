@@ -16,9 +16,9 @@ needed for privilege-level changes) yet.
 
 ```
 cpu/switch.asm        switch_context — the low-level stack swap (assembly)
-src/proc/task.rs      task table, spawn(), scheduler, sleep()
-src/proc/mod.rs        re-exports
-src/cpu/timer.rs      timer IRQ calls schedule() + wakes sleepers
+mono/src/proc/task.rs      task table, spawn(), scheduler, sleep()
+mono/src/proc/mod.rs        re-exports
+kcore/src/cpu/timer.rs      timer IRQ calls schedule() + wakes sleepers
 ```
 
 ## How it works
@@ -130,5 +130,5 @@ Run it:
 
 ```bash
 docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
-  qemu-system-i386 -m 128 -drive file=os-image.bin,format=raw,if=floppy -nographic
+  qemu-system-i386 -m 128 -drive file=os-image-mono.bin,format=raw,if=floppy -nographic
 ```

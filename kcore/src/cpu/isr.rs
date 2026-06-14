@@ -119,7 +119,7 @@ pub unsafe extern "C" fn isr_handler(r: *mut Registers) {
     // System call (int 0x80): EAX = number, EBX/ECX/EDX = args. The return
     // value is written back into the saved EAX so the caller receives it.
     if int_no == 128 {
-        let ret = crate::syscall::dispatch((*r).eax, (*r).ebx, (*r).ecx, (*r).edx);
+        let ret = crate::hooks::syscall((*r).eax, (*r).ebx, (*r).ecx, (*r).edx);
         (*r).eax = ret;
         return;
     }

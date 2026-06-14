@@ -15,9 +15,9 @@ FAT**12** stores 12 bits per entry.
 ## File structure
 
 ```
-src/fs/fat12.rs    BPB parse, root-dir search, FAT chain walk, read_file()
-src/fs/mod.rs      module
-src/drivers/ata.rs the underlying sector reads
+mono/src/fs/fat12.rs    BPB parse, root-dir search, FAT chain walk, read_file()
+mono/src/fs/mod.rs      module
+kcore/src/drivers/ata.rs the underlying sector reads
 ```
 
 ## Disk layout
@@ -64,19 +64,19 @@ cluster = if cluster & 1 == 1 { raw >> 4 } else { raw & 0xFFF };
 
 ## How to test it
 
-Create a FAT12 image with a file, attach it as the primary IDE disk (`-hda`),
+Create a FAT12 image with a file, attach it as the primary IDE disk (`if=ide`),
 and force floppy boot (the FAT image has its own boot signature, so without
 `-boot a` the BIOS would try to boot *it*):
 
 ```bash
 docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
-  make >/dev/null 2>&1
+  make mono >/dev/null 2>&1
   dd if=/dev/zero of=/tmp/fat.img bs=512 count=2880 2>/dev/null
   mkfs.fat -F 12 /tmp/fat.img >/dev/null 2>&1
   printf "Hello from FAT12 filesystem!" > /tmp/h.txt
   mcopy -i /tmp/fat.img /tmp/h.txt ::HELLO.TXT
   timeout 6 qemu-system-i386 -m 128 -boot a \
-    -drive file=os-image.bin,format=raw,if=floppy -hda /tmp/fat.img \
+    -drive file=os-image-mono.bin,format=raw,if=floppy -drive file=/tmp/fat.img,format=raw,if=ide \
     -nographic -serial file:/tmp/r.log -monitor null 2>/dev/null || true
   tr -d "\000" < /tmp/r.log | grep "fs: HELLO"'
 ```

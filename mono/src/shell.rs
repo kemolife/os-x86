@@ -4,12 +4,13 @@
 //! Commands: help, mem, ps, ls, cat <file>, run <file>, uptime, clear.
 //! Output goes to both the VGA screen (what you see) and the serial log.
 
-use crate::drivers::screen::{kprint, clear_screen};
-use crate::drivers::serial::serial_write_str;
-use crate::libc::string::int_to_ascii;
-use crate::mm::{pmm, heap};
+use kcore::drivers::screen::{kprint, clear_screen};
+use kcore::drivers::serial::serial_write_str;
+use kcore::libc::string::int_to_ascii;
+use kcore::mm::{pmm, heap};
 use crate::fs::{fat12, elf};
-use crate::cpu::timer;
+use kcore::cpu::timer;
+use kcore::cpu::ports::port_word_out;
 use crate::proc;
 
 static mut PENDING_EXEC: [u8; 11] = [b' '; 11];
@@ -97,7 +98,7 @@ pub fn run(input: *mut u8) {
         if *s == 0 {
             // empty line
         } else if cmd_is(s, b"help") {
-            puts(b"commands: help mem ps ls cat <f> save <f> run <f> uptime clear\n\0".as_ptr());
+            puts(b"commands: help mem ps ls cat <f> save <f> run <f> uptime clear halt poweroff\n\0".as_ptr());
         } else if cmd_is(s, b"mem") {
             puts(b"pmm: \0".as_ptr());
             putn(pmm::free_frames() as i32);
@@ -160,11 +161,24 @@ pub fn run(input: *mut u8) {
             puts(b"s\n\0".as_ptr());
         } else if cmd_is(s, b"clear") {
             clear_screen();
+        } else if cmd_is(s, b"halt") {
+            puts(b"halted.\n\0".as_ptr());
+            loop {
+                core::arch::asm!("cli; hlt", options(nostack, nomem));
+            }
+        } else if cmd_is(s, b"poweroff") {
+            puts(b"powering off.\n\0".as_ptr());
+            // QEMU ACPI shutdown: 0x604 (modern) / 0xB004 (older).
+            port_word_out(0x604, 0x2000);
+            port_word_out(0xB004, 0x2000);
+            loop {
+                core::arch::asm!("cli; hlt", options(nostack, nomem));
+            }
         } else {
             puts(b"unknown command (try: help)\n\0".as_ptr());
         }
 
-        kprint(b"> \0".as_ptr());
+        puts(b"> \0".as_ptr());
     }
 }
 

@@ -10,11 +10,11 @@ memory-mapped regions and **I/O ports** (see
 ## File structure
 
 ```
-src/drivers/screen.rs     VGA text-mode output (kprint)
-src/drivers/keyboard.rs   PS/2 keyboard input (IRQ1)
-src/drivers/serial.rs     COM1 serial port (output + IRQ4 input)
-src/cpu/timer.rs          PIT timer (IRQ0) + tick counter
-src/cpu/ports.rs          in/out port instructions (port_byte_in/out, word_in/out)
+kcore/src/drivers/screen.rs     VGA text-mode output (kprint)
+kcore/src/drivers/keyboard.rs   PS/2 keyboard input (IRQ1)
+kcore/src/drivers/serial.rs     COM1 serial port (output + IRQ4 input)
+kcore/src/cpu/timer.rs          PIT timer (IRQ0) + tick counter
+kcore/src/cpu/ports.rs          in/out port instructions (port_byte_in/out, word_in/out)
 ```
 
 ---
@@ -90,7 +90,7 @@ Run with both channels:
 
 ```bash
 docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
-  qemu-system-i386 -m 128 -drive file=os-image.bin,format=raw,if=floppy \
+  qemu-system-i386 -m 128 -drive file=os-image-mono.bin,format=raw,if=floppy \
   -display curses -serial stdio
 ```
 

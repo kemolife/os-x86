@@ -41,14 +41,12 @@ fn timer_callback(regs: *const Registers) {
     }
 }
 
-/// Timer IRQ hook that also drives preemptive scheduling once enabled.
+/// Timer IRQ entry: HAL bookkeeping (uptime), then the kernel's tick hook
+/// (scheduling / sleeper wakeups — registered by whichever kernel is linked).
 pub fn timer_tick(regs: *const Registers) {
     unsafe {
         timer_callback(regs);
-        if crate::proc::enabled() {
-            crate::proc::task::wake_sleepers(TICK);
-            crate::proc::schedule();
-        }
+        crate::hooks::tick();
     }
 }
 

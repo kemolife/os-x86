@@ -128,7 +128,7 @@ The kernel itself is Rust compiled to a static library and linked so that
   its core libraries for our target.
 - `i686-linux-gnu-ld -T kernel.ld` links the assembly stubs + the Rust `.a` into
   a flat binary.
-- `cat boot/bootstrap.bin kernel.bin > os-image.bin`, padded to a 1.44MB floppy.
+- `cat boot/bootstrap.bin kernel.bin > os-image-mono.bin`, padded to a 1.44MB floppy.
 
 ## How to test it
 
@@ -145,7 +145,7 @@ Run it:
 
 ```bash
 docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
-  qemu-system-i386 -m 128 -drive file=os-image.bin,format=raw,if=floppy -nographic
+  qemu-system-i386 -m 128 -drive file=os-image-mono.bin,format=raw,if=floppy -nographic
 ```
 
 - Seeing **"Started in 16 - bit Real Mode"** = the BIOS found our MBR and jumped

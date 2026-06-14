@@ -3,5 +3,19 @@
 version = 4
 
 [[package]]
-name = "kernel"
+name = "kcore"
 version = "0.1.0"
+
+[[package]]
+name = "micro"
+version = "0.1.0"
+dependencies = [
+ "kcore",
+]
+
+[[package]]
+name = "mono"
+version = "0.1.0"
+dependencies = [
+ "kcore",
+]

@@ -13,11 +13,11 @@ x86 has four privilege levels (rings) 0–3; we use 0 (kernel) and 3 (user).
 ## File structure
 
 ```
-src/cpu/gdt.rs       user code/data descriptors, the TSS, enter_user_mode()
+kcore/src/cpu/gdt.rs       user code/data descriptors, the TSS, enter_user_mode()
 cpu/interrupt.asm    isr128 stub for the int 0x80 syscall vector
-src/cpu/idt.rs       set_idt_gate_flags() — install a DPL-3 (user-callable) gate
-src/cpu/isr.rs       isr_handler routes int 0x80 to the syscall dispatcher
-src/syscall/mod.rs   dispatch + sys_write + sys_exit
+kcore/src/cpu/idt.rs       set_idt_gate_flags() — install a DPL-3 (user-callable) gate
+kcore/src/cpu/isr.rs       isr_handler routes int 0x80 to the syscall dispatcher
+mono/src/syscall/mod.rs   dispatch + sys_write + sys_exit
 ```
 
 ## The three pieces
@@ -60,8 +60,23 @@ Two gotchas we hit:
 - **`iretd`, not `iret`.** In this assembler `iret` emits the 16-bit `iretw`,
   which pops a garbage frame and #GP-loops.
 - The user code/stack pages must have the **User bit** set in the page tables,
-  or ring-3 access faults. We set it across the identity map for now (so there
-  is no memory isolation yet — that needs per-process page tables).
+  or ring-3 access faults.
+
+## Memory isolation (per-process address spaces)
+
+Each program runs in its **own page directory**. The kernel's identity map is
+**supervisor-only**, and every new address space *shares* those kernel page
+tables (so syscalls/interrupts still work) but adds the program's own pages
+(code, data, stack) at a high virtual address (`0x40000000`+), backed by fresh
+physical frames mapped **USER**. The scheduler loads each task's `CR3` on
+switch, and each task has its **own kernel stack** (TSS `esp0`), so:
+
+- ring 3 can't read or write kernel memory (supervisor pages), and
+- two programs can't see each other's memory (separate directories).
+
+When a task exits it's **reaped**: its kernel stack, page tables, mapped frames,
+and directory are freed (verified: running a program 5× leaves the free-frame
+count unchanged).
 
 ## How to test it
 
@@ -78,7 +93,7 @@ Run (serial):
 
 ```bash
 docker run -it --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 \
-  qemu-system-i386 -m 128 -drive file=os-image.bin,format=raw,if=floppy -nographic
+  qemu-system-i386 -m 128 -drive file=os-image-mono.bin,format=raw,if=floppy -nographic
 ```
 
 Expected:
@@ -98,7 +113,7 @@ foundation for running real programs.
 ## Loading a real program from disk (ELF)
 
 The built-in program above is compiled into the kernel. The **ELF loader**
-(`src/fs/elf.rs`) runs a *separately built* program off the FAT12 disk:
+(`mono/src/fs/elf.rs`) runs a *separately built* program off the FAT12 disk:
 
 1. `fat12::read_file("INIT.ELF")` reads the file into a buffer.
 2. Check the `\x7fELF` magic; read the entry point and the program-header table.
@@ -111,12 +126,12 @@ The user program (`user/program.asm`) is a freestanding ELF32 linked at 4MB
 
 ```bash
 docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
-  make >/dev/null 2>&1 && make user.elf
+  make mono >/dev/null 2>&1 && make user.elf
   dd if=/dev/zero of=/tmp/fat.img bs=512 count=2880 2>/dev/null
   mkfs.fat -F 12 /tmp/fat.img >/dev/null 2>&1
   mcopy -i /tmp/fat.img bin/user/init.elf ::INIT.ELF
   timeout 8 qemu-system-i386 -m 128 -boot a \
-    -drive file=os-image.bin,format=raw,if=floppy -hda /tmp/fat.img \
+    -drive file=os-image-mono.bin,format=raw,if=floppy -drive file=/tmp/fat.img,format=raw,if=ide \
     -nographic -serial file:/tmp/r.log -monitor null 2>/dev/null || true
   tr -d "\000" < /tmp/r.log | grep -E "Hello from an ELF|exit code"'
 ```

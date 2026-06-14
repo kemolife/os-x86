@@ -66,8 +66,8 @@ Prerequisite for everything else.
 | Ring 3 privilege | User code/data GDT descriptors (DPL 3) + TSS; `enter_user_mode` iret into ring 3 (`src/cpu/gdt.rs`) | ✓ |
 | Syscall interface | `int 0x80` gate (DPL 3) + dispatch: `sys_write`, `sys_exit` (`src/syscall`) | ✓ |
 | ELF loader | Parse ELF32, load PT_LOAD segments, enter ring 3 at the entry; loads INIT.ELF off the FAT12 disk (`src/fs/elf.rs`, `user/program.asm`) | ✓ |
-| Per-process page tables | Real address-space isolation (identity map is shared+user for now) | todo |
-| User stack | Per-process user stack | partial (heap-allocated per launch) |
+| Per-process page tables | Each program has its own address space (own CR3 + kernel stack); kernel is supervisor-only. Real isolation. | ✓ |
+| Task reaping | Free a finished task's kernel stack, page tables, frames, and directory | ✓ |
 | `fork` / `exec` | Clone address space; replace image with an ELF | todo |
 
 ---
@@ -111,3 +111,12 @@ E820 map
                       └─ VFS
                            └─ ATA/IDE → FAT → Shell
 ```
+
+---
+
+## Alternative kernel: microkernel
+
+There is a second kernel in this repo built in parallel on the same `kcore`
+HAL — see **[ROADMAP-microkernel.md](ROADMAP-microkernel.md)**. It explores the
+microkernel philosophy (IPC, user-space servers, capabilities) instead of the
+monolithic design above. Build it with `make micro` / `make run-micro`.

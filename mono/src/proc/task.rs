@@ -1,6 +1,6 @@
 //! Task table + round-robin scheduler for ring-0 kernel threads.
 
-use crate::mm::heap::kmalloc;
+use kcore::mm::heap::{kmalloc, kfree};
 
 const MAX_TASKS: usize = 8;
 const STACK_SIZE: usize = 8 * 1024;
@@ -16,16 +16,20 @@ enum State {
 
 #[derive(Clone, Copy)]
 struct Task {
-    esp: u32,       // saved stack pointer (the switch frame lives here)
-    stack: u32,     // base of the allocated stack (for cleanup later)
+    esp: u32,        // saved stack pointer (the switch frame lives here)
+    stack: u32,      // base of the allocated kernel stack
+    kstack_top: u32, // top of the kernel stack — loaded into TSS esp0 when this task runs
+    page_dir: u32,   // physical page directory; 0 = use the shared kernel space
     id: u32,
     state: State,
-    wake_tick: u32, // timer tick at which a Blocked task becomes Ready
+    wake_tick: u32,  // timer tick at which a Blocked task becomes Ready
 }
 
 const EMPTY: Task = Task {
     esp: 0,
     stack: 0,
+    kstack_top: 0,
+    page_dir: 0,
     id: 0,
     state: State::Unused,
     wake_tick: 0,
@@ -47,6 +51,8 @@ pub unsafe fn init() {
     TASKS[0] = Task {
         esp: 0,
         stack: 0,
+        kstack_top: 0x90000, // the boot stack
+        page_dir: 0,
         id: 0,
         state: State::Running,
         wake_tick: 0,
@@ -68,8 +74,8 @@ extern "C" fn idle() {
 
 /// Block the current task for `ms` milliseconds, yielding the CPU meanwhile.
 pub unsafe fn sleep(ms: u32) {
-    let now = crate::cpu::timer::ticks();
-    let delay = (ms * crate::cpu::timer::TIMER_HZ) / 1000;
+    let now = kcore::cpu::timer::ticks();
+    let delay = (ms * kcore::cpu::timer::TIMER_HZ) / 1000;
     TASKS[CURRENT].wake_tick = now + delay.max(1);
     TASKS[CURRENT].state = State::Blocked;
     schedule();
@@ -93,6 +99,11 @@ pub unsafe fn count() -> usize {
 /// Id of the currently running task (for the getpid syscall).
 pub unsafe fn current_id() -> u32 {
     TASKS[CURRENT].id
+}
+
+/// Bind a page directory to the current task (so context switches restore it).
+pub unsafe fn set_current_page_dir(dir: u32) {
+    TASKS[CURRENT].page_dir = dir;
 }
 
 /// (id, state-code) for task `i`: 0=Unused 1=Ready 2=Running 3=Blocked 4=Finished.
@@ -126,11 +137,27 @@ extern "C" fn task_exit() {
     }
 }
 
+/// Find a free task slot (reusing reaped ones), or extend the table.
+unsafe fn alloc_slot() -> Option<usize> {
+    for i in 0..NUM_TASKS {
+        if TASKS[i].state == State::Unused {
+            return Some(i);
+        }
+    }
+    if NUM_TASKS < MAX_TASKS {
+        let i = NUM_TASKS;
+        NUM_TASKS += 1;
+        return Some(i);
+    }
+    None
+}
+
 /// Create a kernel thread that begins executing `entry`.
 pub unsafe fn spawn(entry: extern "C" fn()) {
-    if NUM_TASKS >= MAX_TASKS {
-        return;
-    }
+    let slot = match alloc_slot() {
+        Some(s) => s,
+        None => return,
+    };
     let stack = kmalloc(STACK_SIZE) as u32;
     let mut sp = (stack + STACK_SIZE as u32) as *mut u32;
 
@@ -149,15 +176,32 @@ pub unsafe fn spawn(entry: extern "C" fn()) {
         *sp = 0;
     }
 
-    TASKS[NUM_TASKS] = Task {
+    TASKS[slot] = Task {
         esp: sp as u32,
         stack,
+        kstack_top: stack + STACK_SIZE as u32,
+        page_dir: 0,
         id: NEXT_ID,
         state: State::Ready,
         wake_tick: 0,
     };
     NEXT_ID += 1;
-    NUM_TASKS += 1;
+}
+
+/// Free the resources of any Finished task that isn't the current one. Runs in
+/// the kernel address space (caller guarantees) so dir/table frames are mapped.
+unsafe fn reap() {
+    for i in 0..NUM_TASKS {
+        if i != CURRENT && TASKS[i].state == State::Finished {
+            if TASKS[i].stack != 0 {
+                kfree(TASKS[i].stack as *mut u8);
+            }
+            if TASKS[i].page_dir != 0 {
+                kcore::mm::paging::free_address_space(TASKS[i].page_dir);
+            }
+            TASKS[i] = EMPTY;
+        }
+    }
 }
 
 /// Begin preemptive scheduling (timer IRQ will call `schedule`).
@@ -171,9 +215,11 @@ pub unsafe fn enabled() -> bool {
 
 /// Round-robin: pick the next Ready/Running task and switch to it.
 pub unsafe fn schedule() {
-    if NUM_TASKS < 2 {
-        return;
-    }
+    // Run the scheduler body in the kernel address space so reaping can touch
+    // finished tasks' page-directory frames by physical address.
+    kcore::mm::paging::switch_to_kernel_space();
+    reap();
+
     let prev = CURRENT;
     let mut next = prev;
     let mut found = false;
@@ -186,6 +232,11 @@ pub unsafe fn schedule() {
         }
     }
     if !found || next == prev {
+        // Not switching — restore the current task's address space (we forced
+        // kernel space above for reaping).
+        if TASKS[CURRENT].page_dir != 0 {
+            kcore::mm::paging::switch_address_space(TASKS[CURRENT].page_dir);
+        }
         return;
     }
 
@@ -194,6 +245,12 @@ pub unsafe fn schedule() {
     }
     TASKS[next].state = State::Running;
     CURRENT = next;
+
+    // Run the next task on its own kernel stack and in its address space.
+    kcore::cpu::gdt::set_kernel_stack(TASKS[next].kstack_top);
+    if TASKS[next].page_dir != 0 {
+        kcore::mm::paging::switch_address_space(TASKS[next].page_dir);
+    }
 
     let save = &raw mut TASKS[prev].esp;
     let new_esp = TASKS[next].esp;
