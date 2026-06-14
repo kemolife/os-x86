@@ -47,6 +47,11 @@ and the serial port, so the shell is fully usable over `-nographic` (where your
 host terminal provides scrollback). The VGA text console is a fixed 80×25 and
 scrolls within itself but has no scrollback.
 
+**Command history:** press ↑ / ↓ to recall previous commands. The keyboard
+driver decodes the arrow keys' extended (`0xE0`-prefixed) scancodes, keeps a
+ring of the last 16 lines, and redraws the current line (on VGA + serial) when
+you browse. Mid-line editing (← / →, insert/delete) is not implemented yet.
+
 `run` doesn't exec inline (that would hijack the keyboard-IRQ context into ring
 3). Instead it spawns a task that ELF-execs the file, so the program runs under
 the scheduler and the shell stays responsive.
