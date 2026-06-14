@@ -1,6 +1,7 @@
 use crate::cpu::isr::{Registers, register_interrupt_handler};
 use crate::cpu::ports::port_byte_in;
 use crate::drivers::screen::{kprint, kprint_backspace};
+use crate::drivers::serial::serial_write;
 use crate::libc::string::{append, backspace};
 
 const IRQ1: u8 = 33;
@@ -64,8 +65,13 @@ fn keyboard_callback(regs: *const Registers) {
         if sc == BACKSPACE {
             backspace((&raw mut KEY_BUFFER) as *mut u8);
             kprint_backspace();
+            serial_write(0x08); // echo backspace to serial too
+            serial_write(b' ');
+            serial_write(0x08);
         } else if sc == ENTER {
             kprint(b"\n\0".as_ptr());
+            serial_write(b'\r');
+            serial_write(b'\n');
             if let Some(handler) = INPUT_HANDLER {
                 handler((&raw mut KEY_BUFFER) as *mut u8);
             }
@@ -79,6 +85,7 @@ fn keyboard_callback(regs: *const Registers) {
             let str = [letter, 0u8];
             append((&raw mut KEY_BUFFER) as *mut u8, letter);
             kprint(str.as_ptr());
+            serial_write(letter); // echo typed char to serial too
         }
     }
 }

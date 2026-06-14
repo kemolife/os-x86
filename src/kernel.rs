@@ -33,5 +33,7 @@ pub unsafe extern "C" fn kernel_main() {
     crate::proc::enable();
 
     serial_write_str(b"os-x86 ready. serial I/O active.\n\0".as_ptr());
-    kprint(b"os-x86 kernel shell. type 'help'.\n> \0".as_ptr());
+    let banner = b"os-x86 kernel shell. type 'help'.\n> \0";
+    kprint(banner.as_ptr());
+    serial_write_str(banner.as_ptr());
 }

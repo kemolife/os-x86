@@ -36,8 +36,16 @@ you type normally. Filenames are converted to FAT 8.3 form (`hello.txt` ->
 | `ls` | list files on the FAT12 disk | [filesystem](07-filesystem.md) |
 | `cat <file>` | print a file's contents | filesystem |
 | `run <file>` | load + run an ELF program in ring 3 | [user space](08-userspace.md) |
+| `save <file>` | write a file to the FAT12 disk | filesystem |
 | `uptime` | seconds since boot | timer |
 | `clear` | clear the screen | screen |
+| `halt` | stop the CPU (`cli; hlt`) | — |
+| `poweroff` | power the machine off (QEMU exits) | — |
+
+The keyboard echoes typed characters and the prompt to **both** the VGA screen
+and the serial port, so the shell is fully usable over `-nographic` (where your
+host terminal provides scrollback). The VGA text console is a fixed 80×25 and
+scrolls within itself but has no scrollback.
 
 `run` doesn't exec inline (that would hijack the keyboard-IRQ context into ring
 3). Instead it spawns a task that ELF-execs the file, so the program runs under
