@@ -33,6 +33,13 @@ kernel.elf: $(ASM_OBJ) | dir
 run: os-image.bin
 	qemu-system-i386 -drive file=os-image.bin,format=raw,if=floppy -curses
 
+# Build the freestanding ring-3 user program as an ELF32 executable, linked at
+# 4MB. Goes on a FAT12 data disk (as INIT.ELF), not into the OS image.
+user.elf:
+	mkdir -p bin/user
+	nasm -f elf32 user/program.asm -o bin/user/program.o
+	$(LD) -m elf_i386 -Ttext 0x400000 -e _start -o bin/user/init.elf bin/user/program.o
+
 %.o: %.asm | dir
 	nasm $< -f elf -o $@
 

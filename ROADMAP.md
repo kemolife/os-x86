@@ -63,7 +63,7 @@ Prerequisite for everything else.
 |---------|---------|--------|
 | Ring 3 privilege | User code/data GDT descriptors (DPL 3) + TSS; `enter_user_mode` iret into ring 3 (`src/cpu/gdt.rs`) | ✓ |
 | Syscall interface | `int 0x80` gate (DPL 3) + dispatch: `sys_write`, `sys_exit` (`src/syscall`) | ✓ |
-| ELF loader | Parse ELF32, load segments into user memory, jump to entry | todo |
+| ELF loader | Parse ELF32, load PT_LOAD segments, enter ring 3 at the entry; loads INIT.ELF off the FAT12 disk (`src/fs/elf.rs`, `user/program.asm`) | ✓ |
 | Per-process page tables | Real address-space isolation (identity map is shared+user for now) | todo |
 | User stack | Per-process user stack | partial (heap-allocated per launch) |
 | `fork` / `exec` | Clone address space; replace image with an ELF | todo |

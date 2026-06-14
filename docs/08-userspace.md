@@ -93,9 +93,43 @@ control returned to the user program. `SYS_EXIT` then terminated the task and
 the scheduler moved on. That is the complete user/kernel round trip — the
 foundation for running real programs.
 
+## Loading a real program from disk (ELF)
+
+The built-in program above is compiled into the kernel. The **ELF loader**
+(`src/fs/elf.rs`) runs a *separately built* program off the FAT12 disk:
+
+1. `fat12::read_file("INIT.ELF")` reads the file into a buffer.
+2. Check the `\x7fELF` magic; read the entry point and the program-header table.
+3. For each `PT_LOAD` segment, copy `filesz` bytes from the file to its virtual
+   address and zero-fill the rest (`memsz - filesz`, the `.bss`).
+4. `enter_user_mode(entry, stack)` — run it at ring 3.
+
+The user program (`user/program.asm`) is a freestanding ELF32 linked at 4MB
+(inside the user-accessible identity map). Build + run it:
+
+```bash
+docker run --rm --platform=linux/amd64 -v "$(pwd)":/os -w /os os-x86 bash -c '
+  make >/dev/null 2>&1 && make user.elf
+  dd if=/dev/zero of=/tmp/fat.img bs=512 count=2880 2>/dev/null
+  mkfs.fat -F 12 /tmp/fat.img >/dev/null 2>&1
+  mcopy -i /tmp/fat.img bin/user/init.elf ::INIT.ELF
+  timeout 8 qemu-system-i386 -m 128 -boot a \
+    -drive file=os-image.bin,format=raw,if=floppy -hda /tmp/fat.img \
+    -nographic -serial file:/tmp/r.log -monitor null 2>/dev/null || true
+  tr -d "\000" < /tmp/r.log | grep -E "Hello from an ELF|exit code"'
+```
+
+Expected:
+
+```
+Hello from an ELF program on disk!
+[exit code=42]
+```
+
+The exit code `42` (set inside the ELF, vs `0` in the built-in fallback) proves
+the on-disk program actually ran.
+
 ## What's next
 
-The program here is a function compiled into the kernel. The final step is an
-**ELF loader**: read a separately-compiled program file off the FAT12 disk,
-load its segments into memory, and `enter_user_mode` at its entry point — plus
-per-process page tables for real isolation. See [../ROADMAP.md](../ROADMAP.md).
+Real isolation: give each process its own page tables (so two programs can't
+see each other's memory), then `fork`/`exec`. See [../ROADMAP.md](../ROADMAP.md).

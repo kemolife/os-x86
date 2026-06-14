@@ -107,9 +107,14 @@ extern "C" fn user_program() {
     }
 }
 
-// Kernel thread that allocates a user stack and drops into the ring-3 program.
+// Kernel thread: load INIT.ELF off the disk and run it in ring 3. If there is
+// no disk, fall back to the built-in ring-3 program.
 extern "C" fn user_launcher() {
     unsafe {
+        if crate::fs::elf::exec(b"INIT    ELF") {
+            return; // unreachable: exec enters ring 3 and never comes back
+        }
+        serial_write_str(b"elf: INIT.ELF not found, running built-in user program\n\0".as_ptr());
         let stack = crate::mm::heap::kmalloc(4096) as u32 + 4096;
         crate::cpu::gdt::enter_user_mode(user_program as *const () as u32, stack);
     }
