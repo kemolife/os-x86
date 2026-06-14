@@ -23,6 +23,7 @@ pub unsafe extern "C" fn kernel_main() {
     init_timer(50);
     init_keyboard();
     keyboard_set_handler(user_input);
+    crate::drivers::ata::probe();
 
     core::arch::asm!("int 2", options(nostack));
     core::arch::asm!("int 3", options(nostack));

@@ -44,14 +44,15 @@ Prerequisite for everything else.
 
 ---
 
-## Stage 3 — Storage
+## Stage 3 — Storage (in progress)
 
-| Feature | Details |
-|---------|---------|
-| ATA/IDE PIO driver | Read/write 512-byte sectors via ports `0x1F0`–`0x1F7`. IRQ14 (primary) / IRQ15 (secondary) |
-| Partition table parsing | Read MBR partition table to find FAT partition |
-| FAT12 / FAT16 | Parse FAT filesystem on the boot floppy/disk image. `open`, `read`, `readdir` |
-| VFS layer | Unified interface over storage drivers. `vfs_open()`, `vfs_read()`, `vfs_write()` |
+| Feature | Details | Status |
+|---------|---------|--------|
+| ATA/IDE PIO driver | LBA28 sector reads via ports `0x1F0`–`0x1F7`; floating-bus/timeout guard so a diskless boot doesn't hang (`src/drivers/ata.rs`) | ✓ (read) |
+| ATA writes / IRQ-driven | Currently polled reads only | todo |
+| Partition table parsing | Read MBR partition table to find a FAT partition | todo |
+| FAT12 / FAT16 | Parse a FAT filesystem on a disk image. `open`, `read`, `readdir` | todo |
+| VFS layer | Unified interface over storage drivers. `vfs_open()`, `vfs_read()`, `vfs_write()` | todo |
 
 ---
 
