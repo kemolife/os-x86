@@ -12,7 +12,7 @@ in ring 3 that reads input via syscalls.
 
 ```
 mono/src/shell.rs           command parsing + dispatch
-oscore/src/drivers/keyboard.rs lowercase + Shift layout, line buffering
+kcore/src/drivers/keyboard.rs lowercase + Shift layout, line buffering
 ```
 
 ## How it works

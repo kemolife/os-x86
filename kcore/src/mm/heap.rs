@@ -113,4 +113,4 @@ pub unsafe fn print_stats() {
     int_to_ascii(blocks as i32, buf.as_mut_ptr()); serial_write_str(buf.as_ptr());
     serial_write_str(b" blocks\n\0".as_ptr());
 }
-// The #[global_allocator] lives in oscore/src/lib.rs and calls kmalloc/kfree.
+// The #[global_allocator] lives in kcore/src/lib.rs and calls kmalloc/kfree.

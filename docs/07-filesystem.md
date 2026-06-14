@@ -17,7 +17,7 @@ FAT**12** stores 12 bits per entry.
 ```
 mono/src/fs/fat12.rs    BPB parse, root-dir search, FAT chain walk, read_file()
 mono/src/fs/mod.rs      module
-oscore/src/drivers/ata.rs the underlying sector reads
+kcore/src/drivers/ata.rs the underlying sector reads
 ```
 
 ## Disk layout

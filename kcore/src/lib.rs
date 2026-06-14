@@ -1,4 +1,4 @@
-//! oscore — the shared hardware-abstraction layer used by both the monolithic
+//! kcore — the shared hardware-abstraction layer used by both the monolithic
 //! and microkernel builds: CPU (GDT/IDT/ISR/timer/ports), drivers (VGA, serial,
 //! keyboard, ATA), memory management (E820/PMM/paging/heap), and a tiny libc.
 //!

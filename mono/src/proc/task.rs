@@ -1,6 +1,6 @@
 //! Task table + round-robin scheduler for ring-0 kernel threads.
 
-use oscore::mm::heap::{kmalloc, kfree};
+use kcore::mm::heap::{kmalloc, kfree};
 
 const MAX_TASKS: usize = 8;
 const STACK_SIZE: usize = 8 * 1024;
@@ -74,8 +74,8 @@ extern "C" fn idle() {
 
 /// Block the current task for `ms` milliseconds, yielding the CPU meanwhile.
 pub unsafe fn sleep(ms: u32) {
-    let now = oscore::cpu::timer::ticks();
-    let delay = (ms * oscore::cpu::timer::TIMER_HZ) / 1000;
+    let now = kcore::cpu::timer::ticks();
+    let delay = (ms * kcore::cpu::timer::TIMER_HZ) / 1000;
     TASKS[CURRENT].wake_tick = now + delay.max(1);
     TASKS[CURRENT].state = State::Blocked;
     schedule();
@@ -197,7 +197,7 @@ unsafe fn reap() {
                 kfree(TASKS[i].stack as *mut u8);
             }
             if TASKS[i].page_dir != 0 {
-                oscore::mm::paging::free_address_space(TASKS[i].page_dir);
+                kcore::mm::paging::free_address_space(TASKS[i].page_dir);
             }
             TASKS[i] = EMPTY;
         }
@@ -217,7 +217,7 @@ pub unsafe fn enabled() -> bool {
 pub unsafe fn schedule() {
     // Run the scheduler body in the kernel address space so reaping can touch
     // finished tasks' page-directory frames by physical address.
-    oscore::mm::paging::switch_to_kernel_space();
+    kcore::mm::paging::switch_to_kernel_space();
     reap();
 
     let prev = CURRENT;
@@ -235,7 +235,7 @@ pub unsafe fn schedule() {
         // Not switching — restore the current task's address space (we forced
         // kernel space above for reaping).
         if TASKS[CURRENT].page_dir != 0 {
-            oscore::mm::paging::switch_address_space(TASKS[CURRENT].page_dir);
+            kcore::mm::paging::switch_address_space(TASKS[CURRENT].page_dir);
         }
         return;
     }
@@ -247,9 +247,9 @@ pub unsafe fn schedule() {
     CURRENT = next;
 
     // Run the next task on its own kernel stack and in its address space.
-    oscore::cpu::gdt::set_kernel_stack(TASKS[next].kstack_top);
+    kcore::cpu::gdt::set_kernel_stack(TASKS[next].kstack_top);
     if TASKS[next].page_dir != 0 {
-        oscore::mm::paging::switch_address_space(TASKS[next].page_dir);
+        kcore::mm::paging::switch_address_space(TASKS[next].page_dir);
     }
 
     let save = &raw mut TASKS[prev].esp;

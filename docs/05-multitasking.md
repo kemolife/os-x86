@@ -18,7 +18,7 @@ needed for privilege-level changes) yet.
 cpu/switch.asm        switch_context — the low-level stack swap (assembly)
 mono/src/proc/task.rs      task table, spawn(), scheduler, sleep()
 mono/src/proc/mod.rs        re-exports
-oscore/src/cpu/timer.rs      timer IRQ calls schedule() + wakes sleepers
+kcore/src/cpu/timer.rs      timer IRQ calls schedule() + wakes sleepers
 ```
 
 ## How it works

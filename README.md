@@ -42,7 +42,7 @@ cpu/
 
 Cargo workspace — two kernels share one HAL and one bootloader:
 
-oscore/   (lib)         shared HAL used by both kernels
+kcore/   (lib)         shared HAL used by both kernels
   src/cpu/              ports, GDT, IDT, ISR/IRQ + PIC, PIT timer
   src/drivers/          VGA screen, PS/2 keyboard, COM1 serial, ATA disk
   src/mm/               E820, PMM, paging, heap (+ #[global_allocator])

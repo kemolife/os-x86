@@ -1,5 +1,5 @@
 //! Monolithic kernel: drivers, filesystem, and the shell all run in the kernel.
-//! Built on the shared `oscore` HAL. Exports `kernel_main` for the bootloader.
+//! Built on the shared `kcore` HAL. Exports `kernel_main` for the bootloader.
 
 #![no_std]
 #![allow(dead_code)]

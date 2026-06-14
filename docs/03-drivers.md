@@ -10,11 +10,11 @@ memory-mapped regions and **I/O ports** (see
 ## File structure
 
 ```
-oscore/src/drivers/screen.rs     VGA text-mode output (kprint)
-oscore/src/drivers/keyboard.rs   PS/2 keyboard input (IRQ1)
-oscore/src/drivers/serial.rs     COM1 serial port (output + IRQ4 input)
-oscore/src/cpu/timer.rs          PIT timer (IRQ0) + tick counter
-oscore/src/cpu/ports.rs          in/out port instructions (port_byte_in/out, word_in/out)
+kcore/src/drivers/screen.rs     VGA text-mode output (kprint)
+kcore/src/drivers/keyboard.rs   PS/2 keyboard input (IRQ1)
+kcore/src/drivers/serial.rs     COM1 serial port (output + IRQ4 input)
+kcore/src/cpu/timer.rs          PIT timer (IRQ0) + tick counter
+kcore/src/cpu/ports.rs          in/out port instructions (port_byte_in/out, word_in/out)
 ```
 
 ---

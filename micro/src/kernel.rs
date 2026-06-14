@@ -2,11 +2,11 @@
 //! run an echo *server* and a *client* as separate tasks that talk only through
 //! IPC messages — the defining microkernel pattern.
 
-use oscore::drivers::screen::{screen_init, SCREEN_VGA_DEFAULT};
-use oscore::drivers::serial::{init_serial, serial_write, serial_write_str};
-use oscore::cpu::isr::{isr_install, irq_install};
-use oscore::cpu::timer::init_timer;
-use oscore::libc::string::hex_to_ascii;
+use kcore::drivers::screen::{screen_init, SCREEN_VGA_DEFAULT};
+use kcore::drivers::serial::{init_serial, serial_write, serial_write_str};
+use kcore::cpu::isr::{isr_install, irq_install};
+use kcore::cpu::timer::init_timer;
+use kcore::libc::string::hex_to_ascii;
 
 use crate::{ipc, sched};
 
@@ -52,13 +52,13 @@ extern "C" fn client() {
 
 #[no_mangle]
 pub unsafe extern "C" fn kernel_main() {
-    oscore::hooks::set_tick(tick_hook);
+    kcore::hooks::set_tick(tick_hook);
 
     init_serial();
-    oscore::mm::pmm::init();
-    oscore::mm::paging::init();
-    oscore::mm::heap::init();
-    oscore::cpu::gdt::init();
+    kcore::mm::pmm::init();
+    kcore::mm::paging::init();
+    kcore::mm::heap::init();
+    kcore::cpu::gdt::init();
     screen_init(SCREEN_VGA_DEFAULT);
     isr_install();
     irq_install();

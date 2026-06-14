@@ -1,7 +1,7 @@
 //! Minimal round-robin scheduler for the microkernel demo. Reuses the shared
 //! `switch_context` (cpu/switch.asm). Tasks block/unblock for IPC.
 
-use oscore::mm::heap::kmalloc;
+use kcore::mm::heap::kmalloc;
 
 pub const MAX: usize = 4;
 const STACK: usize = 8 * 1024;

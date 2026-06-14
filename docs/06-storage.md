@@ -20,8 +20,8 @@ the kernel must talk to a disk. The standard interface on a PC is **ATA**
 ## File structure
 
 ```
-oscore/src/drivers/ata.rs    LBA28 PIO sector reads on the primary master
-oscore/src/cpu/ports.rs      port_word_in (the data port is 16-bit)
+kcore/src/drivers/ata.rs    LBA28 PIO sector reads on the primary master
+kcore/src/cpu/ports.rs      port_word_in (the data port is 16-bit)
 ```
 
 ## How it works

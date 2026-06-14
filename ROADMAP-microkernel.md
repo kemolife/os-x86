@@ -1,12 +1,12 @@
 # Microkernel Roadmap
 
 A second kernel, built **in parallel** with the monolithic one. Both share the
-`oscore` hardware-abstraction layer and the same bootloader; they differ in
+`kcore` hardware-abstraction layer and the same bootloader; they differ in
 *where the work lives*.
 
 ```
 boot/ + cpu/*.asm        shared assembly (boot, ISR stubs, context switch)
-oscore/   (lib)          shared HAL: cpu, drivers, mm, libc + kernel hooks
+kcore/   (lib)          shared HAL: cpu, drivers, mm, libc + kernel hooks
 mono/     (staticlib)    monolithic kernel — drivers/fs/shell in the kernel
 micro/    (staticlib)    microkernel    — kernel routes messages; work in tasks
 ```
@@ -62,7 +62,7 @@ Files: `micro/src/ipc.rs`, `micro/src/sched.rs`, `micro/src/kernel.rs`.
 ## How it relates to the monolithic roadmap
 
 ```
-shared: boot + oscore (cpu/drivers/mm/libc) + multitasking primitives
+shared: boot + kcore (cpu/drivers/mm/libc) + multitasking primitives
    ├─ mono  → VFS, drivers-in-kernel, fork/exec, user shell      (ROADMAP.md)
    └─ micro → IPC → ring-3 servers → FS server → capabilities    (this file)
 ```

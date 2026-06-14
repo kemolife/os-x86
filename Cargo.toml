@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["oscore", "mono", "micro"]
+members = ["kcore", "mono", "micro"]
 
 [profile.release]
 opt-level = 2

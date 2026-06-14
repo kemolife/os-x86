@@ -11,10 +11,10 @@ E820 map  ->  PMM (frame allocator)  ->  Paging  ->  Heap (Box/Vec)
 
 ```
 boot/detect_memory.asm   E820 query (real mode), writes the map to 0x8000
-oscore/src/mm/e820.rs           read + print the map
-oscore/src/mm/pmm.rs            physical frame allocator (4KB-frame bitmap)
-oscore/src/mm/paging.rs         page directory/tables, identity map, on-demand mapping
-oscore/src/mm/heap.rs           first-fit free-list heap + #[global_allocator]
+kcore/src/mm/e820.rs           read + print the map
+kcore/src/mm/pmm.rs            physical frame allocator (4KB-frame bitmap)
+kcore/src/mm/paging.rs         page directory/tables, identity map, on-demand mapping
+kcore/src/mm/heap.rs           first-fit free-list heap + #[global_allocator]
 kernel.ld                exports `kernel_end` (where the bitmap is placed)
 ```
 
@@ -34,7 +34,7 @@ this, and only in real mode — so we ask *before* switching to protected mode.
 call returns one 24-byte entry: `base` (8 bytes), `length` (8), `type` (4),
 `attributes` (4). Type 1 = usable RAM; anything else is reserved. The routine
 stores the entry count at physical `0x8000` and the entries at `0x8004`. After
-the switch, `oscore/src/mm/e820.rs` reads them straight from those addresses.
+the switch, `kcore/src/mm/e820.rs` reads them straight from those addresses.
 
 ### Result — what it means
 

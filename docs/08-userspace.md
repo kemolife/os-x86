@@ -13,10 +13,10 @@ x86 has four privilege levels (rings) 0–3; we use 0 (kernel) and 3 (user).
 ## File structure
 
 ```
-oscore/src/cpu/gdt.rs       user code/data descriptors, the TSS, enter_user_mode()
+kcore/src/cpu/gdt.rs       user code/data descriptors, the TSS, enter_user_mode()
 cpu/interrupt.asm    isr128 stub for the int 0x80 syscall vector
-oscore/src/cpu/idt.rs       set_idt_gate_flags() — install a DPL-3 (user-callable) gate
-oscore/src/cpu/isr.rs       isr_handler routes int 0x80 to the syscall dispatcher
+kcore/src/cpu/idt.rs       set_idt_gate_flags() — install a DPL-3 (user-callable) gate
+kcore/src/cpu/isr.rs       isr_handler routes int 0x80 to the syscall dispatcher
 mono/src/syscall/mod.rs   dispatch + sys_write + sys_exit
 ```
 

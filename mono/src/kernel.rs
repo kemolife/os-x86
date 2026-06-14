@@ -1,9 +1,9 @@
-use oscore::drivers::screen::{screen_init, kprint, SCREEN_VGA_DEFAULT};
-use oscore::libc::mem::mem_init;
-use oscore::cpu::isr::{isr_install, irq_install};
-use oscore::cpu::timer::init_timer;
-use oscore::drivers::keyboard::{init_keyboard, keyboard_set_handler};
-use oscore::drivers::serial::{init_serial, serial_write_str};
+use kcore::drivers::screen::{screen_init, kprint, SCREEN_VGA_DEFAULT};
+use kcore::libc::mem::mem_init;
+use kcore::cpu::isr::{isr_install, irq_install};
+use kcore::cpu::timer::init_timer;
+use kcore::drivers::keyboard::{init_keyboard, keyboard_set_handler};
+use kcore::drivers::serial::{init_serial, serial_write_str};
 
 // Bridge the HAL hooks to this kernel's policy (safe-fn wrappers).
 fn syscall_hook(n: u32, a: u32, b: u32, c: u32) -> u32 {
@@ -12,7 +12,7 @@ fn syscall_hook(n: u32, a: u32, b: u32, c: u32) -> u32 {
 fn tick_hook() {
     unsafe {
         if crate::proc::enabled() {
-            crate::proc::task::wake_sleepers(oscore::cpu::timer::ticks());
+            crate::proc::task::wake_sleepers(kcore::cpu::timer::ticks());
             crate::proc::schedule();
         }
     }
@@ -20,17 +20,17 @@ fn tick_hook() {
 
 #[no_mangle]
 pub unsafe extern "C" fn kernel_main() {
-    oscore::hooks::set_syscall(syscall_hook);
-    oscore::hooks::set_tick(tick_hook);
+    kcore::hooks::set_syscall(syscall_hook);
+    kcore::hooks::set_tick(tick_hook);
     init_serial();
-    oscore::mm::e820::print_map();
-    oscore::mm::pmm::init();
-    oscore::mm::pmm::print_stats();
-    oscore::mm::paging::init();
+    kcore::mm::e820::print_map();
+    kcore::mm::pmm::init();
+    kcore::mm::pmm::print_stats();
+    kcore::mm::paging::init();
     serial_write_str(b"paging: enabled (identity-mapped low 16MB)\n\0".as_ptr());
-    oscore::mm::heap::init();
-    oscore::mm::heap::print_stats();
-    oscore::cpu::gdt::init();
+    kcore::mm::heap::init();
+    kcore::mm::heap::print_stats();
+    kcore::cpu::gdt::init();
     serial_write_str(b"gdt: kernel+user segments + TSS loaded\n\0".as_ptr());
 
     screen_init(SCREEN_VGA_DEFAULT);
@@ -40,7 +40,7 @@ pub unsafe extern "C" fn kernel_main() {
     init_timer(50);
     init_keyboard();
     keyboard_set_handler(crate::shell::run);
-    oscore::cpu::isr::syscall_install();
+    kcore::cpu::isr::syscall_install();
 
     // Bring up the scheduler (spawns the idle task); the shell `run` command
     // launches user programs as tasks.

@@ -116,7 +116,7 @@ E820 map
 
 ## Alternative kernel: microkernel
 
-There is a second kernel in this repo built in parallel on the same `oscore`
+There is a second kernel in this repo built in parallel on the same `kcore`
 HAL — see **[ROADMAP-microkernel.md](ROADMAP-microkernel.md)**. It explores the
 microkernel philosophy (IPC, user-space servers, capabilities) instead of the
 monolithic design above. Build it with `make micro` / `make run-micro`.
